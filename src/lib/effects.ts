@@ -4,10 +4,10 @@ export const actionLabels = {salute: '立正敬礼', happy: '开心蹦跶', wave
 export const entryLabels = {slide: '从边缘滑入', bounce: '弹跳出场', spin: '转圈出场', fade: '悄悄出现'} as const;
 export const gagLabels = {none: '不加特效', paper: '工单暴雨', fish: '摸鱼小鱼', hearts: '爱心撒花', overload: '驼峰过载'} as const;
 export const characterSkins = [
-  {id: 'desert', name: '沙漠社畜', description: '松领带、双驼峰，背的都是工作。'},
+  {id: 'desert', name: '沙漠社畜', description: '护目镜、连帽衫，今天也要元气上班。'},
   {id: 'milktea', name: '奶茶摸鱼', description: '奶茶续命，带薪发呆。'},
   {id: 'neon', name: '霓虹加班', description: '耳机一戴，工位之外与我无关。'},
-  {id: 'judge', name: '赛博判官', description: '小眼镜、大法袍，职场是非我来判。'},
+  {id: 'judge', name: '赛博判官', description: '小眼镜、判官服，职场是非我来判。'},
 ] as const;
 export const cardSkins = [
   {id: 'note', name: '摸鱼便签'}, {id: 'verdict', name: '职场判决书'},

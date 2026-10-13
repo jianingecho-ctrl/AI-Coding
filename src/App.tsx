@@ -118,7 +118,7 @@ function Panel({state, ready, error, setError}: {
       <nav>{['测试面板', '联系人', '消息历史', '人物设置'].map(t =>
         <button key={t} className={tab === t ? 'active' : ''} onClick={() => { setTab(t); setNotice(''); }}>{t}</button>
       )}</nav>
-      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>骆驼换装版 / 0.2.0</p></div>
+      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>圆润连帽驼 / 0.3.0</p></div>
     </aside>
 
     <section className="workspace">
@@ -212,6 +212,13 @@ function Panel({state, ready, error, setError}: {
             <Character skin={s.id} color={state.pet.color}/><strong>{s.name}</strong><small>{s.description}</small>
           </button>
         )}</div>
+        <div className="pose-gallery" role="group" aria-label="站姿与跪姿对比">
+          {(['idle', 'kneel', 'panic'] as const).map((pose, index) => <div className="pose-sample" key={pose}>
+            <Character action={pose} skin={skinDraft} color={state.pet.color}/>
+            <strong>{['元气站姿', '双膝跪地举牌', '崩溃跪地举牌'][index]}</strong>
+            <small>{['大圆眼、护目镜、连帽衫', '折腿、双膝落地、身体下沉', '保留跪姿，再加发抖和汗滴'][index]}</small>
+          </div>)}
+        </div>
         <form key={state.pet.name + '-' + state.pet.color} onSubmit={e => {
           e.preventDefault();
           const data = new FormData(e.currentTarget);

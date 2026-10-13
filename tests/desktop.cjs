@@ -36,6 +36,29 @@ const path = require('node:path');
     await send(panel, 'annoying');
     await expect(pet.locator('.slide-kneel')).toBeVisible();
     await expect(pet.locator('.character.kneel')).toBeVisible();
+    await expect(pet.locator('.camel-standing-legs')).toBeHidden();
+    await expect(pet.locator('.camel-kneeling-legs')).toBeVisible();
+    await expect(pet.locator('.camel-raised-arms')).toBeVisible();
+    await expect(pet.locator('.camel-knee.left')).toBeVisible();
+    await expect(pet.locator('.camel-knee.right')).toBeVisible();
+    await pet.locator('.pet-scene').evaluate(async element => {
+      await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => {})));
+    });
+    const kneeGeometry = await pet.locator('.camel-art').evaluate(svg => {
+      const floor = new DOMPoint(150, 347).matrixTransform(svg.getScreenCTM());
+      const knees = Array.from(svg.querySelectorAll('.camel-knee')).map(knee => {
+        const rect = knee.getBoundingClientRect();
+        return {center: rect.x + rect.width / 2, floorGap: Math.abs(floor.y - rect.bottom)};
+      });
+      const calves = Array.from(svg.querySelectorAll('.camel-folded-calf')).map(calf => {
+        const rect = calf.getBBox();return rect.width / rect.height;
+      });
+      return {knees, calves};
+    });
+    expect(kneeGeometry.knees).toHaveLength(2);
+    expect(kneeGeometry.knees[0].center).toBeLessThan(kneeGeometry.knees[1].center);
+    for (const knee of kneeGeometry.knees) expect(knee.floorGap).toBeLessThan(8);
+    for (const ratio of kneeGeometry.calves) expect(ratio).toBeGreaterThan(1.7);
     await expect(pet.getByText('明天下午3点前、本周', {exact: true})).toBeVisible();
     await pet.getByRole('button', {name: '查看原消息'}).click();
     await expect(pet.locator('.original')).toBeVisible();
@@ -118,6 +141,20 @@ const path = require('node:path');
     // 每套人物皮肤都有配件与实际的桌宠展示；个人设置优先于全局。
     await panel.getByRole('button', {name: '人物设置', exact: true}).click();
     await expect(panel.locator('.skin-gallery .skin-choice')).toHaveCount(4);
+    const poses = panel.locator('.pose-gallery');
+    await expect(poses.locator('[data-pose="standing"]')).toHaveCount(1);
+    await expect(poses.locator('[data-pose="kneeling"]')).toHaveCount(2);
+    const heightDifference = await poses.evaluate(gallery => {
+      const samples = gallery.querySelectorAll('.character');
+      return Array.from(samples).slice(0, 2).map(sample => {
+        const top = sample.querySelector('svg').getBoundingClientRect().top;
+        return sample.querySelector('.camel-head').getBoundingClientRect().top - top;
+      });
+    });
+    expect(heightDifference[1] - heightDifference[0]).toBeGreaterThan(12);
+    await poses.scrollIntoViewIfNeeded();
+    await panel.waitForTimeout(2500);
+    await poses.screenshot({path: 'test-results/poses.png'});
     for (const [skin, name] of [['milktea', '奶茶摸鱼'], ['neon', '霓虹加班'], ['judge', '赛博判官'], ['desert', '沙漠社畜']]) {
       await panel.getByRole('button', {name, exact: true}).click();
       await panel.getByRole('button', {name: '保存人物设置'}).click();

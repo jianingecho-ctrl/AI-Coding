@@ -84,9 +84,9 @@ textarea { resize: vertical; line-height: 1.8; min-height: 110px; }
 .selected-effect h3 { font-size: 16px; margin-top: 15px; }
 .selected-effect button { font-size: 11px; margin: 5px 5px 5px 0; }
 .effect-preview { text-align: center; min-width: 0; }
-.effect-preview-stage { height: 330px; position: relative; overflow: hidden; border-radius: 14px; background: radial-gradient(ellipse at 50% 75%, #fdf9e5 0, #e4e9d8 70%); }
+.effect-preview-stage { height: 360px; position: relative; overflow: hidden; border-radius: 14px; background: radial-gradient(ellipse at 50% 75%, #fdf9e5 0, #e4e9d8 70%); }
 .preview-scene { display: flex; flex-direction: column; align-items: center; padding: 15px 10px 0; position: relative; z-index: 1; }
-.preview-scene .character { width: 150px; height: 167px; }
+.preview-scene .character { width: 150px; height: 185px; }
 .preview-card { width: 100%; padding: 14px; border: 2px solid var(--card-ink, #4a674e); border-radius: 12px; background: var(--card-bg, #fffef4); color: var(--card-text, #304436); box-shadow: 3px 4px 0 #34553e17; position: relative; }
 .preview-card small { font-size: 9px; opacity: .7; }
 .preview-card p { font-size: 12px; margin: 7px 0 0; line-height: 1.7; overflow-wrap: anywhere; }
@@ -100,7 +100,7 @@ textarea { resize: vertical; line-height: 1.8; min-height: 110px; }
 .skin-gallery { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 22px 0; }
 .skin-choice { padding: 13px 8px; border-radius: 16px; background: #fffdf5; text-align: center; }
 .skin-choice.selected { border: 2px solid #467050; background: #edf2e4; padding: 12px 7px; box-shadow: 0 4px 10px #35503a18; }
-.skin-choice .character { width: 125px; height: 140px; max-width: 100%; margin: auto; }
+.skin-choice .character { width: 125px; height: 154px; max-width: 100%; margin: auto; }
 .skin-choice strong { display: block; font-size: 12px; margin: 8px 0; }
 .skin-choice small { display: block; font-size: 10px; line-height: 1.6; color: #7a8871; min-height: 32px; }
 .card-skin-samples { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 25px 0; }
@@ -146,61 +146,74 @@ textarea { resize: vertical; line-height: 1.8; min-height: 110px; }
 .pet-toolbar button { font-size: 10px; padding: 5px 8px; background: #fffef5ed; }
 .drag-handle { -webkit-app-region: drag; background: #fffef5dd; border-radius: 8px; padding: 6px 10px; color: #58775c; }
 .pet-scene { display: flex; flex-direction: column; align-items: center; width: 100%; max-height: 600px; position: relative; }
-.pet-scene .message-card { width: 100%; max-height: 330px; overflow: auto; position: relative; z-index: 2; flex-shrink: 1; }
+.pet-scene .message-card { width: 100%; max-height: 306px; overflow: auto; position: relative; z-index: 2; flex-shrink: 1; }
 .pet-scene .card-actions { position: sticky; bottom: -16px; padding: 9px 0; background: var(--card-bg); border-top: 1px solid var(--card-ink); }
-.pet-drag { -webkit-app-region: drag; flex-shrink: 0; text-align: center; height: 253px; }
-.pet-drag .character { width: 210px; height: 234px; margin: 0 auto; }
+.pet-drag { -webkit-app-region: drag; flex-shrink: 0; text-align: center; height: 278px; }
+.pet-drag .character { width: 210px; height: 259px; margin: 0 auto; }
 .pet-name { font-size: 10px; display: inline-block; padding: 4px 12px; background: #fffef5e6; border-radius: 12px; color: #34553e; }
 .idle-bubble { font-size: 12px; background: #fffef5; border: 2px solid #456349; border-radius: 16px; padding: 13px 18px; box-shadow: 3px 3px 0 #34553e17; margin-bottom: 10px; animation: bubble 5s ease-in-out infinite; }
 
-/* 骆驼服饰、配件和动作。SVG 内部关节按原始 viewBox 坐标变换。 */
+/* 圆润连帽衫骆驼。四种服饰配色共用渐变和明确的站/跪骨架。 */
 .character {
-  --ink: #4a3d32; --fur: #d6ac70; --fur-dark: #b78853; --snout: #f0d5a7; --blush: #dc9d88;
-  --shirt: #93b893; --pants: #596451; --collar: #fff9e9; --accent: #bd6c4c;
-  width: 210px; height: 234px; position: relative;
+  --ink: #9d7b55; --fur-light: #f2cf93; --fur: #d8ab6c; --fur-dark: #b78043;
+  --shirt: #43b9c9; --shirt-light: #96e3e5; --shirt-dark: #238b9c;
+  --pants: #3e4b54; --accent: #b5873d; --glass: #7cd5df;
+  width: 210px; height: 259px; position: relative;
 }
-.character.color-蜜桃粉 { --shirt: #e1a0a1; }
-.character.color-奶油黄 { --shirt: #e3cb83; }
-.character.skin-milktea { --shirt: #f2c979; --pants: #8c6c48; --accent: #a67955; --fur: #e1c18e; --fur-dark: #b69566; --snout: #f7e1b7; }
-.character.skin-neon { --shirt: #cd7caf; --pants: #47466b; --accent: #71cfca; --ink: #444059; --fur: #dbc4ba; --fur-dark: #b59ca9; --snout: #f2dccb; }
-.character.skin-judge { --shirt: #5c5378; --pants: #454256; --accent: #c3a35d; --collar: #eee5d3; --fur: #b7b6cc; --fur-dark: #8785a3; --snout: #ded9e6; --ink: #454054; }
+.character.color-蜜桃粉 { --shirt: #e29aa9; --shirt-light: #ffd3d8; --shirt-dark: #b9738b; }
+.character.color-奶油黄 { --shirt: #e5c16a; --shirt-light: #fff0b5; --shirt-dark: #bd9643; }
+.character.skin-milktea {
+  --shirt: #e6c389; --shirt-light: #fff0cf; --shirt-dark: #b38b53;
+  --pants: #806344; --accent: #a0703e; --glass: #9dd4be;
+}
+.character.skin-neon {
+  --shirt: #b581ca; --shirt-light: #e7bbf1; --shirt-dark: #7b528f;
+  --pants: #47415f; --accent: #69cfc2; --glass: #a1e8dd;
+}
+.character.skin-judge {
+  --shirt: #72658f; --shirt-light: #aaa0c4; --shirt-dark: #49435f;
+  --pants: #44404e; --accent: #cba657; --glass: #bfcbe8;
+}
 .camel-art { width: 100%; height: 100%; overflow: visible; display: block; }
-.camel-shadow { fill: #3c493327; }
-.camel-head, .camel-arm, .camel-leg, .camel-humps, .camel-neck, .camel-torso, .camel-figure { transform-box: view-box; }
-.camel-head { transform-origin: 130px 125px; }
-.camel-arm.left { transform-origin: 90px 190px; }
-.camel-arm.right { transform-origin: 174px 190px; }
-.camel-leg.left { transform-origin: 108px 239px; }
-.camel-leg.right { transform-origin: 153px 239px; }
-.camel-figure { transform-origin: 132px 277px; }
-.camel-phone, .camel-zzz, .camel-heart, .camel-sweat, .camel-yawn-mouth, .camel-raised-arms, .camel-panic-label, .camel-knees { display: none; }
+.camel-shadow { opacity: .9; }
+.camel-head, .camel-arm, .camel-torso, .camel-figure, .camel-drawstring { transform-box: view-box; }
+.camel-head { transform-origin: 150px 128px; }
+.camel-arm.left { transform-origin: 88px 220px; }
+.camel-arm.right { transform-origin: 210px 220px; }
+.camel-figure { transform-origin: 150px 344px; }
+.camel-phone, .camel-zzz, .camel-heart, .camel-sweat, .camel-yawn-mouth, .camel-raised-arms,
+.camel-panic-label, .camel-kneeling-legs, .camel-kneel-label, .camel-kneel-mouth,
+.camel-lids, .camel-closed-eyes, .camel-landing-dust { display: none; }
 .idle .camel-head { animation: camel-idle 4s ease-in-out infinite; }
-.fish .camel-phone { display: block; }
-.fish .camel-head { transform: rotate(6deg); }
-.fish .camel-arm.left { transform: rotate(-30deg); }
-.yawn .camel-yawn-mouth, .yawn .camel-zzz { display: block; }
-.yawn .camel-mouth, .yawn .camel-tooth { display: none; }
+.fish .camel-phone, .fish .camel-lids { display: block; }
+.fish .camel-head { transform: rotate(5deg); }
+.fish .camel-arm.left { transform: rotate(-22deg); }
+.yawn .camel-yawn-mouth, .yawn .camel-zzz, .yawn .camel-closed-eyes { display: block; }
+.yawn .camel-pupil, .yawn .camel-smile, .yawn .camel-tooth, .yawn .camel-tongue { display: none; }
 .yawn .camel-head { animation: camel-idle 2s ease-in-out infinite; }
-.salute .camel-arm.right { transform: rotate(-145deg); }
-.salute .camel-tie { animation: tie-swing 1s ease-in-out 3; transform-origin: 134px 198px; }
+.salute .camel-arm.right { transform: rotate(-145deg) scaleY(1.3); }
+.salute .camel-drawstring { animation: string-swing 1s ease-in-out 3; transform-origin: 150px 202px; }
 .happy .camel-figure { animation: camel-happy .7s ease-in-out infinite alternate; }
 .happy .camel-heart { display: block; animation: bubble 1s infinite alternate; }
-.happy .camel-lids { transform: translateY(-8px); }
 .wave .camel-arm.right { animation: camel-wave .8s ease-in-out infinite alternate; }
-.kneel .camel-arm { display: none; }
-.kneel .camel-raised-arms, .kneel .camel-sweat { display: block; }
-.kneel .camel-torso, .kneel .camel-neck, .kneel .camel-head, .kneel .camel-humps { transform: translateY(12px); }
-.kneel .camel-leg { display: none; }
-.kneel .camel-knees { display: block; }
-.kneel .camel-cup { display: none; }
+.kneel .camel-arm, .kneel .camel-standing-legs, .kneel .camel-cup, .kneel .camel-smile,
+.kneel .camel-tongue, .kneel .camel-tooth { display: none; }
+.kneel .camel-raised-arms, .kneel .camel-sweat, .kneel .camel-kneeling-legs,
+.kneel .camel-kneel-label, .kneel .camel-kneel-mouth, .kneel .camel-landing-dust { display: block; }
+.kneel .camel-torso { transform: translateY(15px); }
+.kneel .camel-head { transform: translateY(30px) scale(.84); }
+.kneel .camel-pupil { transform: translateY(-5px); }
+.kneel .camel-landing-dust { animation: knee-dust .8s .5s ease-out both; transform-origin: 150px 340px; }
 .panic .camel-figure { animation: camel-panic .16s ease-in-out 14; }
 .panic .camel-panic-label { display: block; }
-.panic .camel-mouth { transform: scaleY(-1); transform-origin: 133px 127px; }
-@keyframes camel-idle { 50% { transform: rotate(-4deg) translateY(2px); } }
+.panic .camel-brow.left { transform: rotate(-8deg); transform-origin: 112px 83px; }
+.panic .camel-brow.right { transform: rotate(8deg); transform-origin: 187px 83px; }
+@keyframes camel-idle { 50% { transform: rotate(-2deg) translateY(2px); } }
 @keyframes camel-happy { to { transform: translateY(-7px) rotate(3deg); } }
-@keyframes camel-wave { from { transform: rotate(-95deg); } to { transform: rotate(-130deg); } }
+@keyframes camel-wave { from { transform: rotate(-85deg); } to { transform: rotate(-115deg); } }
 @keyframes camel-panic { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
-@keyframes tie-swing { 50% { transform: rotate(15deg); } }
+@keyframes string-swing { 50% { transform: rotate(8deg); } }
+@keyframes knee-dust { from { opacity: 0; transform: scale(.3); } 30% { opacity: .7; } to { opacity: 0; transform: scale(1.8); } }
 @keyframes bubble { 50% { transform: translateY(-4px); } }
 
 /* 一次进场动画：消息卡片始终保留，不因动画结束而消失。 */
@@ -245,7 +258,13 @@ textarea { resize: vertical; line-height: 1.8; min-height: 110px; }
   .intro .character { width: 150px; height: 168px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .camel-figure, .camel-head, .camel-arm, .camel-tie, .camel-heart, .idle-bubble { animation: none !important; }
+  .camel-figure, .camel-head, .camel-arm, .camel-drawstring, .camel-heart, .camel-landing-dust, .idle-bubble { animation: none !important; }
   .entry-slide, .entry-bounce, .entry-spin, .entry-fade, .slide-kneel, .slide-kneel .message-card { animation-duration: .01ms; }
   .scene-effects { display: none; }
 }
+
+.pose-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }
+.pose-sample { padding: 18px 12px; background: #fffdf5; border: 1px solid #e0e5d9; border-radius: 16px; text-align: center; overflow: hidden; }
+.pose-sample .character { width: 160px; height: 197px; max-width: 100%; margin: auto; }
+.pose-sample strong { display: block; font-size: 12px; margin-top: 10px; }
+.pose-sample small { display: block; font-size: 10px; color: #839182; margin-top: 7px; line-height: 1.7; }
