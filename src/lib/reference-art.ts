@@ -1,7 +1,8 @@
 import {personaArt} from './persona-art';
+import {palaceArt} from './palace-art';
 import {leaderOutline} from './leader-outline';
 import type {CharacterId} from './model';
-export const referenceArt=personaArt;
+export const referenceArt={...personaArt,...palaceArt};
 export function referenceAnimation(character:CharacterId,baseUrl:string){
  if(!(character in referenceArt))throw new Error('人物素材不存在');
  const art=referenceArt[character as keyof typeof referenceArt];

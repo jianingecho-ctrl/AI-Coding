@@ -6,7 +6,7 @@ describe('七类人物与个人配置优先级',()=>{
  it.each(categories.map((category,i)=>[category,['leader','honest','bored','laidback','silly','bigSilly','npc'][i],'stand',['run','walk','float','roll','jump','slide','fade'][i]] as const))('%s使用独立人物、动作和进场',(category,character,action,entry)=>{expect(resolveEffects({id:'a',name:'甲',category})).toMatchObject({character,action,entry});});
  it('个人设置覆盖大傻类型的全部默认选项',()=>{
   const contact:Contact={id:'a',name:'甲',category:'大傻之人',effects:personalEffectSchema.parse({character:'honest',action:'smile',entry:'walk',duration:3,characterSkin:'neon',cardSkin:'chat',gag:'none',line:'先坐着说',assetId:'10b4ff12-880f-4047-bb35-6627e5fc669f'})};
-  expect(resolveEffects(contact)).toEqual({character:'honest',action:'smile',entry:'walk',duration:3,characterSkin:'neon',cardSkin:'chat',gag:'none',line:'先坐着说',assetId:'10b4ff12-880f-4047-bb35-6627e5fc669f'});
+  expect(resolveEffects(contact)).toEqual({character:'honest',action:'smile',entry:'walk',duration:3,characterSkin:'neon',cardSkin:'chat',gag:'none',line:'先坐着说',assetId:'10b4ff12-880f-4047-bb35-6627e5fc669f',theme:'ocean'});
  });
  it('取消下跪后，七类人物保持原图姿态，只用进场方式区分',()=>{for(const category of categories){const e=resolveEffects({id:'a',name:'甲',category});expect(isKneeling(e.action)).toBe(false);expect(e.action).toBe('stand');}expect(resolveEffects({id:'a',name:'甲',category:'大傻之人'}).entry).toBe('slide');});
  it('同类联系人可有不同人物和播放速度，待机配置不会覆盖人物',()=>{const a:Contact={id:'a',name:'甲',category:'NPC同事',effects:personalEffectSchema.parse({character:'silly',duration:4})};const b:Contact={id:'b',name:'乙',category:'NPC同事'};expect(resolveEffects(a,{...defaultState.pet,character:'bored'})).toMatchObject({character:'silly',duration:4});expect(resolveEffects(b).character).toBe('npc');});

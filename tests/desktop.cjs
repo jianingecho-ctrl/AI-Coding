@@ -6,8 +6,8 @@ const path=require('node:path');
 (async()=>{
  const data=await mkdtemp(path.join(tmpdir(),'judge-mvp-')),source=await mkdtemp(path.join(tmpdir(),'judge-source-'));
  let app;const errors=[];
- async function launch(){
-  app=await electron.launch({args:[...(process.platform==='linux'?['--no-sandbox']:[]),'.'],env:{...process.env,JUDGE_DATA_DIR:data,ELECTRON_RUN_AS_NODE:''},timeout:30000});
+ async function launch(extraArgs=[]){
+  app=await electron.launch({args:[...(process.platform==='linux'?['--no-sandbox']:[]),'.',...extraArgs],env:{...process.env,JUDGE_DATA_DIR:data,ELECTRON_RUN_AS_NODE:''},timeout:30000});
   await expect.poll(()=>app.windows().filter(p=>p.url().includes('view=')).length).toBe(2);
   const pet=app.windows().find(p=>p.url().includes('view=pet')),panel=app.windows().find(p=>p.url().includes('view=panel'));
   for(const page of [pet,panel])page.on('pageerror',e=>errors.push(e.message));
@@ -34,7 +34,7 @@ const path=require('node:path');
   expect(flags.some(w=>w.top)).toBe(true);expect(flags.every(w=>w.prefs.contextIsolation&&!w.prefs.nodeIntegration)).toBe(true);
   expect(await pet.evaluate(()=>getComputedStyle(document.documentElement).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   expect(await pet.locator('.pet-drag').evaluate(e=>getComputedStyle(e).webkitAppRegion)).toBe('drag');
-  const roles=['leader','honest','bored','laidback','silly','bigSilly','npc'],ids=['boss','honest','bored','laidback','silly','bigSilly','npc'],actions=Array(7).fill('stand'),entries=['run','walk','float','roll','jump','slide','fade'];
+  const roles=['leader','honest','bored','laidback','silly','bigSilly','npc'],ids=['boss','honest','bored','laidback','silly','bigSilly','npc'],palaceRoles=['palace_emperor','palace_meizhuang','palace_huafei','palace_jingfei','palace_anlingrong','palace_empress','palace_zhenhuan'],actions=Array(7).fill('stand'),entries=['run','walk','float','roll','jump','slide','fade'];
   const frames=new Set();
   for(let i=0;i<roles.length;i++){
    await send(panel,ids[i]);await expect(pet.locator('[data-character="'+roles[i]+'"]')).toBeVisible();await readyImage(pet);
@@ -44,7 +44,7 @@ const path=require('node:path');
   }
   expect(frames.size).toBe(7);
   // 真正验证 PNG 透明通道；素材的空白区域不会显示海报矩形。
-  for(const id of roles.filter(id=>id!=='leader')){
+  for(const id of [...roles.filter(id=>id!=='leader'),...palaceRoles]){
    const bytes=await readFile('public/characters/'+id+'.png');
    const alpha=await panel.evaluate(async encoded=>{const image=new Image();image.src='data:image/png;base64,'+encoded;await image.decode();const canvas=document.createElement('canvas');canvas.width=128;canvas.height=128;const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0,128,128);const data=ctx.getImageData(0,0,128,128).data;let transparent=0,solid=0;for(let p=3;p<data.length;p+=4){if(data[p]<=2)transparent++;if(data[p]>=230)solid++;}return {corners:[data[3],data[127*4+3],data[(128*127)*4+3],data[data.length-1]],transparent:transparent/(128*128),solid:solid/(128*128)}},bytes.toString('base64'));
    expect(alpha.corners.every(a=>a<=2)).toBe(true);expect(alpha.transparent).toBeGreaterThan(.15);expect(alpha.solid).toBeGreaterThan(.1);
@@ -118,9 +118,23 @@ const path=require('node:path');
   const disk=JSON.parse(await readFile(path.join(data,'judge-state.json'),'utf8'));expect(JSON.stringify(disk)).not.toContain('apiKey');
   await panel.evaluate(async()=>{try{await window.judge.getAssetFrames('../../private');throw Error('未拒绝')}catch(e){if(String(e).includes('未拒绝'))throw e}});
   await pet.emulateMedia({reducedMotion:'reduce'});await panel.evaluate(async()=>{const s=await window.judge.getState();await window.judge.previewContact(s.contacts[1])});await expect(pet.locator('[data-character="honest"]')).toBeVisible();expect(await pet.locator('.pet-scene').evaluate(e=>getComputedStyle(e).animationName)).toBe('none');
+  // 完整宫廷主题：控制台、桌宠、卡片实际显示；切换不清除个人设置、历史或次数。
+  const beforeTheme=await panel.evaluate(()=>window.judge.getState());
+  await panel.getByRole('button',{name:'切换甄嬛传主题',exact:true}).click();await expect(panel.getByRole('status')).toHaveText('甄嬛传主题已启用。');
+  await expect(panel.locator('.dashboard.theme-palace')).toBeVisible();await expect(panel.locator('.palace-backdrop')).toBeVisible();expect(await panel.locator('.palace-backdrop').evaluate(e=>getComputedStyle(e).pointerEvents)).toBe('none');await expect(panel.locator('.ocean-backdrop')).toHaveCount(0);await expect(pet.locator('[data-character="palace_zhenhuan"][data-ready="true"]')).toBeVisible();expect(await pet.locator('.pet-stage').getAttribute('data-theme')).toBe('palace');
+  const themed=await panel.evaluate(()=>window.judge.getState());for(const key of ['contacts','history','interactions','assets'])expect(themed[key]).toEqual(beforeTheme[key]);expect(themed.pet).toMatchObject({theme:'palace',scale:.45,soundEnabled:false,soundVolume:.7});
+  await panel.getByRole('button',{name:'测试面板',exact:true}).click();await panel.screenshot({path:'test-results/palace-console.png'});
+  await pet.evaluate(()=>{window.palaceDemo=[];window.judge.onMessage(m=>{if(m.preview)window.palaceDemo.push(m.effect.character)})});await panel.getByRole('button',{name:'一键播放七类人物',exact:true}).click();await expect(panel.getByRole('status')).toHaveText('七类人物演示完成，未写入历史，未调用 AI。',{timeout:40000});expect(await pet.evaluate(()=>window.palaceDemo)).toEqual(palaceRoles);expect(await panel.evaluate(async()=> (await window.judge.getState()).history.length)).toBe(beforeTheme.history.length);
+  await send(panel,'boss');await expect(pet.locator('[data-character="palace_emperor"]')).toBeVisible();await expect(pet.locator('.card-palace')).toBeVisible();await expect(pet.locator('.catchphrase')).toHaveText('这份待办，朕等着看。');
+  for(const [kind,label] of [['elbow','肘击'],['slap','扇嘴'],['burn','烧心'],['heart','比心']]){await pet.getByRole('button',{name:label,exact:true}).click();await expect(pet.locator('[data-interaction="'+kind+'"]')).toBeVisible();await expect(pet.locator('[data-count="'+kind+'"]')).toHaveText(label+' '+(kind==='heart'?2:1)+' 次');}await pet.screenshot({path:'test-results/palace-message.png',omitBackground:true});
+  await panel.evaluate(async()=>{const s=await window.judge.getState();await window.judge.previewContact(s.contacts.find(c=>c.id==='bigSilly'))});await expect(pet.locator('[data-character="honest"]')).toBeVisible();await expect(pet.locator('.card-chat')).toBeVisible();
+  await panel.getByRole('button',{name:'人物设置',exact:true}).click();await expect(panel.getByRole('group',{name:'七类消息人物'}).locator('[data-ready="true"]')).toHaveCount(7);await panel.getByRole('group',{name:'七类消息人物'}).screenshot({path:'test-results/palace-characters.png'});
+  await panel.getByRole('button',{name:'联系人',exact:true}).click();await panel.getByRole('button',{name:'自定义路过同事的效果',exact:true}).click();await panel.getByRole('region',{name:'个性效果编辑器'}).getByLabel('消息人物',{exact:true}).selectOption('palace_huafei');await panel.getByRole('region',{name:'个性效果编辑器'}).getByRole('button',{name:'保存个性效果',exact:true}).click();await expect(panel.getByRole('status')).toHaveText('个性效果已保存。');await panel.getByRole('region',{name:'个性效果编辑器'}).getByRole('button',{name:'播放桌面预览',exact:true}).click();await expect(pet.locator('[data-character="palace_huafei"]')).toBeVisible();
+  await panel.getByRole('button',{name:'切换海洋职场主题',exact:true}).click();await expect(panel.locator('.ocean-backdrop')).toBeVisible();await expect(pet.locator('[data-character="npc"]')).toBeVisible();expect(await panel.evaluate(async()=> (await window.judge.getState()).contacts.find(c=>c.id==='npc').effects.character)).toBe('palace_huafei');
+  await app.close();({pet,panel}=await launch(['--theme=palace']));await expect(panel.locator('.dashboard.theme-palace')).toBeVisible();await expect(pet.locator('[data-character="palace_zhenhuan"][data-ready="true"]')).toBeVisible();expect(await panel.evaluate(async()=> (await window.judge.getState()).pet.theme)).toBe('palace');await app.close();({pet,panel}=await launch());await expect(panel.locator('.dashboard.theme-palace')).toBeVisible();await expect(pet.locator('[data-character="palace_zhenhuan"][data-ready="true"]')).toBeVisible();
   await panel.getByRole('button',{name:'测试面板',exact:true}).click();await panel.screenshot({path:'test-results/mvp-panel.png'});await panel.getByRole('button',{name:'消息历史',exact:true}).click();await panel.getByRole('button',{name:'恢复到桌面',exact:true}).first().click();await expect(pet.locator('.message-card')).toBeVisible();const contactsBefore=await panel.evaluate(async()=> (await window.judge.getState()).contacts.length);panel.once('dialog',d=>d.accept());await panel.getByRole('button',{name:'清空历史',exact:true}).click();await expect(panel.getByRole('status')).toHaveText('历史已清空。');await expect(pet.locator('.message-card')).toHaveCount(0);await expect(pet.locator('.restore-chip')).toHaveCount(0);expect(await panel.evaluate(async()=> (await window.judge.getState()).history.length)).toBe(0);expect(await panel.evaluate(async()=> (await window.judge.getState()).contacts.length)).toBe(contactsBefore);if(errors.length)throw Error(errors.join('\n'));
   await panel.getByRole('button',{name:'互动统计',exact:true}).click();await expect(panel.locator('tbody tr')).toHaveCount(2);panel.once('dialog',d=>d.accept());await panel.getByRole('button',{name:'清空互动统计',exact:true}).click();await expect(panel.getByRole('status')).toHaveText('互动统计已清空。');expect(await panel.evaluate(async()=> (await window.judge.getState()).interactions.length)).toBe(0);
-  console.log('Electron 桌面验收通过：小尺寸及窗口展开/收起、四种互动动画与实际音频节点/静音、每日联系人计数/跨消息累计/跨窗口同步/重启恢复/单独清空、七类精细人物及七种进场/一键演示/停止、回复/忽略、人物配置/素材导入/隐藏置顶、AI 降级/关闭/清空历史。');
+  console.log('Electron 桌面验收通过：甄嬛传七位透明人物与完整演示、宫廷控制台/卡片/台词、主题切换与重启/个人优先级、宫廷互动与计数，以及原有海洋人物/音效/回复/素材/隐藏置顶/AI 降级与清空历史。');
  }catch(e){if(app)for(const page of app.windows())await page.screenshot({path:'test-results/failure-'+(page.url().includes('pet')?'pet':'panel')+'.png'}).catch(()=>{});throw e;}
  finally{if(app)await app.close().catch(()=>{});await rm(data,{recursive:true,force:true});await rm(source,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1});

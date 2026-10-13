@@ -1,8 +1,8 @@
 import {it,expect} from 'vitest';
 import {readFileSync} from 'node:fs';
-import {personaIds} from '../src/lib/model';
+import {personaIds,palaceIds} from '../src/lib/model';
 import {referenceAnimation,referenceArt} from '../src/lib/reference-art';
-it.each(personaIds)('%s 加载本地素材且完整适配显示区域',id=>{
+it.each([...personaIds,...palaceIds])('%s 加载本地素材且完整适配显示区域',id=>{
  const animation=referenceAnimation(id,'./'),asset=animation.assets[0];
  expect(asset.u).toBe('./'+(id==='leader'?'references/':'characters/'));
  const [width,height]=referenceArt[id].size,[x,y,bw,bh]=referenceArt[id].bounds;

@@ -16,6 +16,10 @@ import './ocean.css';
 import {DemoPlayer,demoContacts} from './lib/demo';
 import {PetPreferences} from './components/PetPreferences';
 import {InteractionStats} from './components/InteractionStats';
+import {PalaceBackdrop} from './components/PalaceBackdrop';
+import {ThemeSwitcher} from './components/ThemeSwitcher';
+import {palaceRoster,themePet,themeNames} from './lib/palace';
+import type {Theme} from './lib/model';
 
 export function App() {
   const [state, setState] = useState<State>(structuredClone(defaultState));
@@ -58,7 +62,7 @@ function Pet({state, error}: {state: State; error: string}) {
   useEffect(()=>{if(!reaction)return;const timer=setTimeout(()=>setReaction(null),1200);return()=>clearTimeout(timer)},[reaction]);
   const effect = message ? messageEffects(message) : null;
   const character = effect?.character ?? state.pet.character;
-  return <main className="pet-stage" style={{'--pet-scale':state.pet.scale} as CSSProperties}>
+  return <main className="pet-stage" data-theme={state.pet.theme} style={{'--pet-scale':state.pet.scale} as CSSProperties}>
     <div className="pet-toolbar">
       <span className="drag-handle" title="按住拖动窗口">⠿ 拖动小判官</span>
       <button onClick={() => window.judge.openPanel()}>控制台</button>
@@ -67,13 +71,13 @@ function Pet({state, error}: {state: State; error: string}) {
     </div>
     {error && <p className="error">{error}</p>}
     <div key={entry} style={{'--entry-duration':(effect?.duration??1.2)+'s'} as CSSProperties} className={'pet-scene ' + (effect ? 'entry-' + effect.entry : '') + (effect?.entry==='slide' && isKneeling(effect.action) ? ' slide-kneel' : '')}>
-      {effect && <SceneEffects gag={effect.gag}/>}
+      {effect && <SceneEffects gag={effect.gag} theme={effect.theme}/>}
       {message && <MessageCard key={message.id} state={state} message={state.history.find(m=>m.id===message.id)??message}
         onClose={() => {setDismissed(message);setMessage(null);setAction('idle')}}
         onIgnore={() => {setDismissed(message);setMessage(null);setAction('idle')}}
         onInteraction={kind=>setReaction(r=>({kind,key:(r?.key??0)+1}))}/>}
       {!message&&!dismissed && <div className="idle-bubble">
-        {action === 'fish' ? '带薪摸鱼，也是努力。' : action === 'yawn' ? '不是我困，是班太长。' : '打工待命，摸鱼在线。'}
+        {state.pet.theme==='palace'?'本宫待命，摸鱼随缘。':action === 'fish' ? '带薪摸鱼，也是努力。' : action === 'yawn' ? '不是我困，是班太长。' : '打工待命，摸鱼在线。'}
       </div>}
       {dismissed&&!message&&<button className="restore-chip" onClick={()=>{setMessage(dismissed);setAction('stand');setDismissed(null)}}>重新查看 · {dismissed.contact.name}</button>}
       <div key={reaction?.key??0} className={"pet-drag "+(reaction?'reaction-'+reaction.kind:'')} title="按住人物拖动窗口">
@@ -118,6 +122,8 @@ function Panel({state, ready, error, setError}: {
   function save(contacts: Contact[], pet = state.pet) { return window.judge.saveSettings({contacts, pet}); }
   const chosen = state.contacts.find(c => c.id === selected);
   const editing = state.contacts.find(c => c.id === editingId);
+  const palace=state.pet.theme==='palace',roster=palace?palaceRoster:characterRoster;
+  function switchTheme(theme:Theme){void execute(async()=>{await save(state.contacts,themePet(state.pet,theme));await window.judge.clearDisplayedMessage();},themeNames[theme]+'主题已启用。');}
   function preview(contact: Contact) {
     void execute(() => window.judge.previewContact(contact), '桌面预览已播放，未写入消息历史。');
   }
@@ -130,35 +136,36 @@ function Panel({state, ready, error, setError}: {
   }
   function stopDemo(){demoPlayer.current.stop();void window.judge.clearDisplayedMessage().catch(e=>setError(String(e)));}
 
-  return <main className="dashboard">
-    <OceanBackdrop/>
+  return <main className={'dashboard theme-'+state.pet.theme}>
+    {palace?<PalaceBackdrop/>:<OceanBackdrop/>}
     <aside>
       <div className="brand-icon">判</div>
-      <h1>职场小判官<span>每人一张脸，消息各有戏</span></h1>
+      <h1>职场小判官<span>{palace?'宫廷来信，本宫替你判':'每人一张脸，消息各有戏'}</span></h1>
       <nav>{['测试面板', '联系人', '消息历史','互动统计', '人物设置'].map(t =>
         <button key={t} className={tab === t ? 'active' : ''} onClick={() => {if(demoRunning)stopDemo();setTab(t);setNotice('');}}>{t}</button>
       )}</nav>
-      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>海洋桌宠版 / 0.6.0</p></div>
+      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>{palace?'甄嬛传宫廷版':'海洋桌宠版'} / 0.7.0</p></div>
     </aside>
 
     <section className="workspace">
-      <header><div><span className="eyebrow">职场有点苦，角色有点逗</span><h2>{tab}</h2></div>
+      <header><div><span className="eyebrow">{palace?'今日入宫上班，差事也要有排面':'职场有点苦，角色有点逗'}</span><h2>{tab}</h2></div>
         <button onClick={()=>window.judge.showPet()}>显示桌宠</button><span className="pill">{state.ai.enabled ? (state.ai.provider==='ollama'?'本地 AI 模式':'在线 AI 模式') : '离线规则模式'}</span></header>
       {error && <p role="alert" className="error">{error}</p>}
       {notice && <p role="status" className="notice">{notice}</p>}
+      <ThemeSwitcher theme={state.pet.theme} busy={!ready||busy} onChange={switchTheme}/>
 
       {tab === '测试面板' && <>
         <div className="intro">
-          <div><span className="eyebrow">七类人物，各有进场剧本</span><h3>谁来消息，谁的专属角色出场。</h3>
-            <p>同一条消息，换个人发，就是另一出戏。</p>
+          <div><span className="eyebrow">{palace?'甄嬛传 · 七位原创 Q 版宫廷人物':'七类人物，各有进场剧本'}</span><h3>{palace?'宫里来消息，本宫替你捋明白。':'谁来消息，谁的专属角色出场。'}</h3>
+            <p>{palace?'皇上、甄嬛、华妃等七位人物，带着各自的台词和进场亮相。':'同一条消息，换个人发，就是另一出戏。'}</p>
             <div className="category-pills">{categories.map(c =>
-              <span key={c}>{c} · {entryLabels[resolveEffects({id: 'sample', name: c, category: c}).entry]}</span>
+              <span key={c}>{palace?characterLabels[resolveEffects({id:'sample',name:c,category:c},state.pet).character]:c} · {entryLabels[resolveEffects({id: 'sample', name: c, category: c}).entry]}</span>
             )}</div>
           </div>
           <Character character={chosen ? resolveEffects(chosen, state.pet).character : state.pet.character} action={chosen ? resolveEffects(chosen, state.pet).action : 'idle'} skin={chosen ? resolveEffects(chosen, state.pet).characterSkin : state.pet.skin} color={state.pet.color} assetId={chosen?resolveEffects(chosen,state.pet).assetId:null}/>
         </div>
-        <section className="demo-controls"><div><h3>一键演示七类人物</h3><p>按默认进场依次播放，不修改联系人，不记录历史，不调用 AI。</p>
-          {demoRunning&&<p role="status">正在演示 {demoStep} / 7 · {demoContacts[Math.max(0,demoStep-1)].category}</p>}</div>
+        <section className="demo-controls"><div><h3>{palace?'一键演示七位宫廷人物':'一键演示七类人物'}</h3><p>按默认进场依次播放，不修改联系人，不记录历史，不调用 AI。</p>
+          {demoRunning&&<p role="status">正在演示 {demoStep} / 7 · {palace?palaceRoster[Math.max(0,demoStep-1)].name:demoContacts[Math.max(0,demoStep-1)].category}</p>}</div>
           <div><button disabled={!ready||busy} onClick={()=>void playDemo()}>一键播放七类人物</button>{demoRunning&&<button onClick={stopDemo}>停止演示</button>}</div></section>
         <div className="privacy-note"><strong>模拟消息 · V1.0 范围</strong><p>本版只处理你在此输入的模拟数据，未连接真实飞书账号或读取 macOS 通知。</p>
           <p>{!state.ai.enabled?'AI 分析已关闭：仅本地规则解析，消息不外发。':state.ai.provider==='ollama'?'启用本机 Ollama：仅发送当前消息正文到本机 127.0.0.1:11434。':'启用在线 AI：发送当前模拟消息正文、模型参数和摘要提示到配置的服务；不上传联系人名单、消息历史、回复记录或人物素材。正文中写入的个人信息也会随正文发送。'}</p>
@@ -235,8 +242,8 @@ function Panel({state, ready, error, setError}: {
 
       {tab === '人物设置' && <>
         <PetPreferences pet={state.pet} busy={!ready||busy} onSave={preferences=>void execute(()=>save(state.contacts,{...state.pet,...preferences}),'尺寸与音效已保存。')}/>
-        <div className="settings-title"><div><h3>选个待机角色，给每个人安排一张脸。</h3><p className="description">七类人物使用 Word 中的本地图片与 Lottie 轮廓动画，保持原图姿态。这里选择没有消息时的默认角色；来消息时使用联系人的角色，关闭卡片后恢复待机角色。</p></div></div>
-        <div className="character-gallery" role="group" aria-label="七类消息人物">{characterRoster.map(c =>
+        <div className="settings-title"><div><h3>{palace?'请一位宫廷人物，陪你批阅差事。':'选个待机角色，给每个人安排一张脸。'}</h3><p className="description">{palace?'七位人物使用原创 Q 版清宫卡通素材与 Lottie 待机动画。':'七类人物使用 Word 中的本地图片与 Lottie 轮廓动画，保持原图姿态。'}这里选择没有消息时的默认角色；来消息时使用联系人的角色，关闭卡片后恢复待机角色。切换主题会更换待机人物与原色皮肤，联系人指定的人物、素材和其他个性设置继续优先。</p></div></div>
+        <div className="character-gallery" role="group" aria-label="七类消息人物">{roster.map(c =>
           <button type="button" className={'character-choice '+(characterDraft===c.id?'selected':'')} key={c.id}
             aria-label={c.name} aria-pressed={characterDraft===c.id} onClick={()=>setCharacterDraft(c.id)}>
             <Character character={c.id}/><strong>{c.name}</strong><small>{c.description}</small>

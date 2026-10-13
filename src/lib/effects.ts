@@ -1,4 +1,5 @@
-import {actionIds,personalEffectSchema,type Action,type Category,type Contact,type Message,type ResolvedEffect,type State,type CharacterId} from './model';
+import {actionIds,palaceIds,personalEffectSchema,type Action,type Category,type Contact,type Message,type ResolvedEffect,type State,type CharacterId} from './model';
+import {palaceRoster,palaceLines} from './palace';
 export const actionLabels={salute:'敬礼',smile:'微笑',sigh:'叹气',lie:'躺平',scratch:'挠头',kneel:'双膝跪地举牌',stand:'原图姿态',happy:'开心蹦跶',wave:'招手',fish:'摸鱼',yawn:'打哈欠',panic:'崩溃跪地'} as const;
 export const entryLabels={run:'跑步进场',walk:'正常走入',float:'缓慢飘入',roll:'翻滚进场',jump:'蹦跳进场',slide:'从右侧滑入',fade:'淡入',bounce:'弹跳进场',spin:'转圈进场'} as const;
 export const gagLabels={none:'不加特效',paper:'工单暴雨',fish:'摸鱼小鱼',hearts:'开心撒花',overload:'工位过载'} as const;
@@ -13,8 +14,8 @@ export const characterRoster=[
  {id:'npc',name:'NPC同事',description:'白衣红裤蓝鱼，安静淡入，工位常驻。'},
 ] as const;
 export const legacyRoster=[{id:'balloon',name:'气鼓鼓小绿'},{id:'tongue',name:'吐舌摸鱼鱼'},{id:'anxious',name:'抱膝焦虑鱼'},{id:'cool',name:'佛系蓝鱼'},{id:'lying',name:'横躺摆烂鱼'},{id:'office',name:'纸杯打工鱼'},{id:'camel',name:'连帽衫骆驼'}] as const;
-export const characterLabels=Object.fromEntries([...characterRoster,...legacyRoster].map(c=>[c.id,c.name])) as Record<CharacterId,string>;
-export const cardSkins=[{id:'note',name:'摸鱼便签'},{id:'verdict',name:'职场判决书'},{id:'chat',name:'开心气泡'},{id:'alarm',name:'工位过载警报'}] as const;
+export const characterLabels=Object.fromEntries([...characterRoster,...palaceRoster,...legacyRoster].map(c=>[c.id,c.name])) as Record<CharacterId,string>;
+export const cardSkins=[{id:'note',name:'摸鱼便签'},{id:'verdict',name:'职场判决书'},{id:'chat',name:'开心气泡'},{id:'alarm',name:'工位过载警报'},{id:'palace',name:'鎏金宫廷笺'}] as const;
 const personas=[
  {character:'leader',action:'stand',entry:'run',cardSkin:'verdict',gag:'paper',line:'收到！腿比脑子先到。',duration:.9},
  {character:'honest',action:'stand',entry:'walk',cardSkin:'note',gag:'none',line:'好的，我来处理。',duration:1.4},
@@ -30,10 +31,11 @@ export function isDisliked(category:Category){return category==='讨厌的人'||
 export function allowedActions(_category:Category):Action[]{return [...actionIds];}
 export function hasPersonalEffects(contact:Contact){return Boolean(contact.effects&&Object.entries(contact.effects).some(([key,v])=>key==='line'?Boolean(v):v!==null&&v!=='auto'));}
 export function resolveEffects(contact:Contact,pet?:State['pet']):ResolvedEffect{
- const base=personas[index[contact.category]],c=personalEffectSchema.parse(contact.effects??{});
+ const i=index[contact.category],original=personas[i],theme=pet?.theme??'ocean';
+ const base=theme==='palace'?{...original,character:palaceIds[i],cardSkin:'palace' as const,line:palaceLines[i]}:original,c=personalEffectSchema.parse(contact.effects??{});
  return {character:c.character==='auto'?base.character:c.character,action:c.action==='auto'?base.action:c.action,
  entry:c.entry==='auto'?base.entry:c.entry,characterSkin:c.characterSkin==='auto'?pet?.skin??'desert':c.characterSkin,
  cardSkin:c.cardSkin==='auto'?base.cardSkin:c.cardSkin,gag:c.gag==='auto'?base.gag:c.gag,line:c.line||base.line,
- duration:c.duration??base.duration,assetId:c.assetId};
+ duration:c.duration??base.duration,assetId:c.assetId,theme};
 }
 export function messageEffects(message:Message){return message.effect??{...resolveEffects(message.contact),character:'camel' as const};}

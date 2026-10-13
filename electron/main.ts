@@ -11,6 +11,7 @@ import {importFiles,readFrames} from './assets';
 import {Credentials} from './credentials';
 import {InteractionService} from './interactions';
 import {petWindowSize,resizedPetBounds} from '../src/lib/pet-layout';
+import {themePet} from '../src/lib/palace';
 if(process.env.JUDGE_DATA_DIR)app.setPath('userData',path.resolve(process.env.JUDGE_DATA_DIR));
 let pet:BrowserWindow|null=null;
 let panel:BrowserWindow|null=null;
@@ -53,6 +54,7 @@ function deliver(message:Message){
 }
 app.whenReady().then(async()=>{
  store=new Store(path.join(app.getPath('userData'),'judge-state.json'));await store.load();
+ if(process.argv.includes('--theme=palace')&&store.get().pet.theme!=='palace')await store.update(s=>({...s,pet:themePet(s.pet,'palace')}));
  assetRoot=path.join(app.getPath('userData'),'assets');
  credentials=new Credentials(path.join(app.getPath('userData'),'ai-key.enc'));
  messages=new MessagePipeline(store,()=>credentials.get());

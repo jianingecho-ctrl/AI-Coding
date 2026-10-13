@@ -8,7 +8,7 @@ export function EffectPreview({contact,pet}:{contact:Contact;pet:State['pet']}){
  const [replay,setReplay]=useState(0);
  return <div className="effect-preview">
   <div className="effect-preview-stage" key={`${JSON.stringify(effect)}-${replay}`}>
-   <SceneEffects gag={effect.gag}/>
+   <SceneEffects gag={effect.gag} theme={effect.theme}/>
    <div style={{'--entry-duration':effect.duration+'s'} as CSSProperties} className={`preview-scene entry-${effect.entry} ${effect.entry==='slide'&&isKneeling(effect.action)?'slide-kneel':''}`}>
     <div className={`preview-card card-${effect.cardSkin}`}><small>{contact.name} · {contact.category}</small><p>{effect.line}</p></div>
     <Character character={effect.character} action={effect.action} color={pet.color} skin={effect.characterSkin} name={pet.name} duration={effect.duration} assetId={effect.assetId}/>

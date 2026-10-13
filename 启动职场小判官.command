@@ -13,4 +13,4 @@ if [ ! -f node_modules/.judge-lock.json ] || ! cmp -s package-lock.json node_mod
   cp package-lock.json node_modules/.judge-lock.json
 fi
 npm run build
-npm start
+npm start -- "$@"
