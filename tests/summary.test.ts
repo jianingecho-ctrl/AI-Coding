@@ -12,6 +12,6 @@ describe('本地消息摘要',()=>{
  it('限制摘要长度，并将不明确的回复标为待核对',()=>{const s=summarize('哦'.repeat(500));expect(s.core.length).toBeLessThanOrEqual(180);expect(s.reply).toContain('未明确');});
 });
 describe('配置输入校验',()=>{
- it('默认配置有效',()=>expect(stateSchema.parse(defaultState).contacts).toHaveLength(4));
+ it('默认配置有效',()=>expect(stateSchema.parse(defaultState).contacts).toHaveLength(5));
  it('拒绝空姓名与未知分类',()=>{expect(()=>stateSchema.parse({...defaultState,contacts:[{id:'a',name:' ',category:'领导'}]})).toThrow();expect(()=>stateSchema.parse({...defaultState,contacts:[{id:'a',name:'小王',category:'陌生人'}]})).toThrow();});
 });

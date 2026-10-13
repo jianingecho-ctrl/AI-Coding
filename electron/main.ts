@@ -2,7 +2,9 @@ import {app,BrowserWindow,ipcMain,Menu,screen} from 'electron';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import {contactSchema,stateSchema,type State} from '../src/lib/model';
+import {contactSchema,stateSchema,type State,type Message} from '../src/lib/model';
+import {isKneeling, messageEffects, resolveEffects} from '../src/lib/effects';
+import {summarize} from '../src/lib/summary';
 import {extractSummary} from './ai';
 import {Store} from './store';
 if(process.env.JUDGE_DATA_DIR)app.setPath('userData',path.resolve(process.env.JUDGE_DATA_DIR));
@@ -23,6 +25,15 @@ function openPanel(){
  load(panel,'panel');panel.on('closed',()=>{panel=null;});
 }
 function broadcast(state:State){for(const w of BrowserWindow.getAllWindows())w.webContents.send('state:changed',state);}
+function deliver(message:Message){
+ if(!pet||pet.isDestroyed())return;
+ const effect=messageEffects(message);
+ if(effect.entry==='slide'||isKneeling(effect.action)){
+  const area=screen.getDisplayMatching(pet.getBounds()).workArea;
+  pet.setPosition(Math.max(area.x,area.x+area.width-460),Math.max(area.y,Math.min(pet.getBounds().y,area.y+area.height-660)));
+ }
+ pet.show();pet.webContents.send('message:new',message);
+}
 app.whenReady().then(async()=>{
  store=new Store(path.join(app.getPath('userData'),'judge-state.json'));await store.load();
  const area=screen.getPrimaryDisplay().workArea;
@@ -39,15 +50,16 @@ app.whenReady().then(async()=>{
  ipcMain.handle('message:send',async(_,input)=>{
   const data=z.object({contactId:z.string(),text:z.string().trim().min(1).max(5000)}).parse(input);
   const contact=store.get().contacts.find(c=>c.id===data.contactId);if(!contact)throw new Error('联系人不存在');
-  const message={id:randomUUID(),contact,text:data.text,createdAt:new Date().toISOString(),summary:await extractSummary(data.text,store.get().ai)};
+  const stateAtReception=store.get();
+  const message:Message={id:randomUUID(),contact,text:data.text,createdAt:new Date().toISOString(),summary:await extractSummary(data.text,stateAtReception.ai),effect:resolveEffects(contact,stateAtReception.pet)};
   const state=await store.update(s=>({...s,history:[message,...s.history].slice(0,200)}));broadcast(state);
-  if(pet&&!pet.isDestroyed()){
-   if(contact.category==='讨厌的人'){
-    const area=screen.getDisplayMatching(pet.getBounds()).workArea;
-    pet.setPosition(Math.max(area.x,area.x+area.width-460),Math.max(area.y,Math.min(pet.getBounds().y,area.y+area.height-660)));
-   }
-   pet.show();pet.webContents.send('message:new',message);
-  }return message;
+  deliver(message);return message;
+ });
+ ipcMain.handle('effect:preview',(_,input)=>{
+  const contact=contactSchema.parse(input);
+  const text='这是一条桌面效果预览消息，不写入历史。请明天下午3点前提交摸鱼报告，收到请回复。';
+  const message:Message={id:randomUUID(),contact,text,createdAt:new Date().toISOString(),summary:summarize(text),effect:resolveEffects(contact,store.get().pet),preview:true};
+  deliver(message);return message;
  });
  ipcMain.handle('history:clear',async()=>{const state=await store.update(s=>({...s,history:[]}));broadcast(state);return state;});
  ipcMain.handle('panel:open',openPanel);ipcMain.handle('app:quit',()=>app.quit());
