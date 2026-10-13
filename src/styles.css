@@ -268,3 +268,112 @@ textarea { resize: vertical; line-height: 1.8; min-height: 110px; }
 .pose-sample .character { width: 160px; height: 197px; max-width: 100%; margin: auto; }
 .pose-sample strong { display: block; font-size: 12px; margin-top: 10px; }
 .pose-sample small { display: block; font-size: 10px; color: #839182; margin-top: 7px; line-height: 1.7; }
+
+/* 六个扁平线稿角色保持参考图的衣着和颜色，与骆驼服饰分开。 */
+.character-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 22px 0; }
+.character-choice { border: 1px solid #dce4d4; border-radius: 17px; background: #fffdf0; padding: 15px 10px; text-align: center; }
+.character-choice.selected { border: 2px solid #467050; background: #edf2df; padding: 14px 9px; }
+.character-choice .character { width: 145px; height: 179px; margin: auto; }
+.character-choice strong { display: block; font-size: 13px; margin: 10px 0 8px; }
+.character-choice small { display: block; font-size: 10px; color: #78866d; line-height: 1.7; }
+.legacy-character { margin: 20px 0; padding: 15px; border: 1px solid #dce4d4; border-radius: 12px; }
+.legacy-character summary { cursor: pointer; font-size: 12px; color: #6c7e66; margin-bottom: 12px; }
+.fish-art { width: 100%; height: 100%; display: block; overflow: visible; }
+.fish-head, .fish-arm, .fish-torso, .fish-figure, .fish-art { transform-box: view-box; }
+.fish-head { transform-origin: 150px 150px; }
+.fish-arm.left { transform-origin: 98px 220px; }
+.fish-arm.right { transform-origin: 198px 220px; }
+.fish-figure { transform-origin: 150px 185px; }
+.fish-raised-arms, .fish-kneeling-legs, .fish-rest-legs, .fish-hug-arms, .fish-balloon-fins,
+.fish-phone, .fish-zzz, .fish-heart, .fish-sweat, .fish-panic-label, .fish-kneel-label,
+.fish-yawn-face, .fish-dust { display: none; }
+.fish-type-balloon:not(.kneel) .fish-arm { display: none; }
+.fish-type-balloon:not(.kneel) .fish-balloon-fins { display: block; }
+.fish-type-office:not(.kneel) .fish-arm.left { display: none; }
+.fish-type-anxious:is(.idle,.fish,.yawn) .fish-standing-legs,
+.fish-type-anxious:is(.idle,.fish,.yawn) .fish-arm { display: none; }
+.fish-type-anxious:is(.idle,.fish,.yawn) .fish-rest-legs,
+.fish-type-anxious:is(.idle,.fish,.yawn) .fish-hug-arms { display: block; }
+.fish-type-lying:not(.kneel) .fish-figure { transform: rotate(-90deg) scale(.9); }
+.fish-character.idle .fish-head { animation: fish-idle 4s ease-in-out infinite; }
+.fish-character.fish .fish-phone { display: block; }
+.fish-character.yawn .fish-yawn-face, .fish-character.yawn .fish-zzz { display: block; }
+.fish-character.yawn .fish-eyes, .fish-character.yawn .fish-mouth { visibility: hidden; }
+.fish-character.happy .fish-art { animation: fish-happy .7s ease-in-out infinite alternate; }
+.fish-character.happy .fish-heart { display: block; }
+.fish-character.salute .fish-arm.right { transform: rotate(-145deg) scaleY(1.6); }
+.fish-character.wave .fish-arm.right { animation: fish-wave .8s ease-in-out infinite alternate; }
+.fish-character.kneel .fish-standing-legs, .fish-character.kneel .fish-rest-legs,
+.fish-character.kneel .fish-arm, .fish-character.kneel .fish-office-prop,
+.fish-character.kneel .fish-balloon-fins, .fish-character.kneel .fish-hug-arms { display: none; }
+.fish-character.kneel .fish-raised-arms, .fish-character.kneel .fish-kneeling-legs,
+.fish-character.kneel .fish-kneel-label, .fish-character.kneel .fish-sweat,
+.fish-character.kneel .fish-dust { display: block; }
+.fish-character.kneel .fish-head { transform: translateY(23px) scale(.88); }
+.fish-character.kneel .fish-torso { transform: translateY(15px); }
+.fish-character.kneel .fish-dust { animation: knee-dust .8s .5s ease-out both; transform-origin: 150px 340px; }
+.fish-character.panic .fish-figure { animation: fish-panic .16s ease-in-out 14; }
+.fish-character.panic .fish-panic-label { display: block; }
+@keyframes fish-idle { 50% { transform: rotate(-2deg) translateY(2px); } }
+@keyframes fish-happy { to { transform: translateY(-6px) rotate(3deg); } }
+@keyframes fish-wave { from { transform: rotate(-85deg); } to { transform: rotate(-115deg); } }
+@keyframes fish-panic { 0%,100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+@media (max-width: 900px) { .character-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) {
+  .fish-head, .fish-arm, .fish-figure, .fish-art, .fish-dust { animation: none !important; }
+}
+.fish-type-balloon.wave .fish-balloon-fins > path:nth-child(2) { animation: balloon-wave .8s ease-in-out infinite alternate; transform-origin: 195px 240px; }
+.fish-type-balloon.salute .fish-balloon-fins > path:nth-child(2) { transform: rotate(-140deg); transform-origin: 195px 240px; }
+@keyframes balloon-wave { from { transform: rotate(-65deg); } to { transform: rotate(-110deg); } }
+@media (prefers-reduced-motion: reduce) { .fish-balloon-fins > path { animation: none !important; } }
+.fish-type-cool:is(.idle,.fish,.yawn) .fish-arm.left { transform: rotate(-40deg); }
+.fish-type-cool:is(.idle,.fish,.yawn) .fish-arm.right { transform: rotate(40deg); }
+.fish-type-tongue:is(.idle,.fish,.yawn) .fish-arm { transform: scaleX(1.7); }
+.fish-type-lying:not(.kneel) .fish-shadow { transform: translateY(-100px); }
+
+/* 用户素材按序列帧 / GIF / 静态图片播放。内置人物使用 Lottie。 */
+.frame-character img { width:100%; height:100%; object-fit:contain; display:block; }
+.frame-skin-milktea img { filter:sepia(.55) saturate(.8); }
+.frame-skin-neon img { filter:hue-rotate(65deg) saturate(1.5); }
+.frame-skin-judge img { filter:saturate(.4) contrast(1.1) hue-rotate(170deg); }
+.asset-library { padding:22px; margin:24px 0; border:1px solid #dce3d5; border-radius:16px; background:#edf1e4; }
+.asset-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:15px; }
+.asset-item { background:white; border-radius:12px; padding:12px; overflow:hidden; }
+.asset-item .character { width:130px; height:150px; margin:auto; }
+.asset-item strong,.asset-item small { display:block; overflow-wrap:anywhere; margin-top:8px; font-size:11px; }
+.entry-run { animation:enter-run var(--entry-duration, .9s) ease-out both; }
+.entry-walk { animation:enter-walk var(--entry-duration, 1.4s) ease-out both; }
+.entry-float { animation:enter-float var(--entry-duration, 2.4s) ease-out both; }
+.entry-roll { animation:enter-roll var(--entry-duration, 1.3s) ease-out both; }
+.entry-jump,.entry-bounce { animation:enter-jump var(--entry-duration, 1s) ease-out both; }
+.entry-slide,.slide-kneel { animation:enter-knee var(--entry-duration, 1.1s) cubic-bezier(.18,.75,.24,1) both; }
+.entry-fade { animation:enter-fade var(--entry-duration, .8s) ease-out both; }
+.entry-spin { animation:enter-roll var(--entry-duration, 1.3s) ease-out both; }
+@keyframes enter-run { 0%{transform:translateX(330px) rotate(8deg)} 40%{transform:translateX(140px) translateY(-14px)} 60%{transform:translateX(90px) translateY(0)} 80%{transform:translateX(25px) translateY(-10px)} 100%{transform:translate(0)} }
+@keyframes enter-walk { 0%{transform:translateX(300px)} 35%{transform:translateX(170px) translateY(-5px)} 65%{transform:translateX(80px)} 85%{transform:translateX(20px) translateY(-5px)} 100%{transform:translate(0)} }
+@keyframes enter-float { from{opacity:0;transform:translate(220px,-55px) rotate(-8deg)} to{opacity:1;transform:translate(0)} }
+@keyframes enter-roll { from{opacity:0;transform:translateX(380px) rotate(360deg)} to{opacity:1;transform:translateX(0) rotate(0)} }
+@keyframes enter-jump { 0%{opacity:0;transform:translateX(260px)} 35%{opacity:1;transform:translate(150px,-70px)} 60%{transform:translateX(70px)} 80%{transform:translate(30px,-25px)} 100%{transform:translate(0)} }
+@keyframes enter-knee { 0%{transform:translateX(500px) rotate(-8deg)} 75%{transform:translateX(-14px) rotate(2deg)} 100%{transform:translateX(0) rotate(0)} }
+@keyframes enter-fade { from{opacity:0} to{opacity:1} }
+@media (prefers-reduced-motion:reduce) { [class*="entry-"],.slide-kneel { animation:none !important; } }
+.reference-character svg { display:block;width:100%;height:100%;overflow:visible; }
+.reference-character.frame-skin-milktea svg { filter:sepia(.55) saturate(.8); }
+.reference-character.frame-skin-neon svg { filter:hue-rotate(65deg) saturate(1.5); }
+.reference-character.frame-skin-judge svg { filter:saturate(.4) contrast(1.1) hue-rotate(170deg); }
+.elbow-effect { position:absolute;z-index:5;right:12px;top:38%;padding:13px 18px;background:#fff0b5;border:2px solid #b67b3f;border-radius:13px;font-size:16px;pointer-events:none;animation:elbow-hit .75s ease-out both; }
+.message-card { position:relative; }
+.elbow-nudge .character { animation:elbow-nudge .6s ease-out; }
+.ignored-card { display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px;border-radius:12px;background:#edf1e6;font-size:12px; }
+.restore-chip { font-size:11px;margin-bottom:10px; }
+@keyframes elbow-hit { 0%{opacity:0;transform:translateX(80px) rotate(-12deg)} 25%{opacity:1;transform:translateX(-20px) rotate(3deg)} 75%{opacity:1;transform:translateX(0)} 100%{opacity:0;transform:translateY(-20px)} }
+@keyframes elbow-nudge { 20%{transform:translateX(-16px) rotate(-6deg)} 40%{transform:translateX(12px) rotate(4deg)} 100%{transform:translateX(0) rotate(0)} }
+@media (prefers-reduced-motion:reduce) { .elbow-effect,.elbow-nudge .character {animation:none !important;} }
+
+.scene-effects { z-index:1; }
+.reply-form { padding:12px;margin:12px 0;background:#ffffff80; }
+.reply-form label { margin-bottom:8px; }
+.reply-form textarea { min-height:72px;font-size:11px; }
+.reply-form small { display:block;margin-bottom:8px; }
+.local-replies { border-top:1px dashed var(--card-ink);padding-top:12px;font-size:11px; }
+.local-replies p { white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px; }

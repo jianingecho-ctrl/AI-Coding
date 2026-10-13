@@ -9,5 +9,5 @@ export function summarize(text:string): Summary {
   const dates=[...new Set(normalized.match(deadlinePattern)||[])];
   const noReply=/(不用|无需|不必).{0,4}回复/.test(normalized);
   const mustReply=/(请|麻烦|需要|记得|务必).{0,12}(回复|答复|确认)|收到.{0,6}(回复|回一下)|[？?]/.test(normalized);
-  return {core:sentences.slice(0,2).join('；').slice(0,180)||normalized.slice(0,180),todos,deadline:dates.length?dates.join('、'):'未明确，请核对原消息',reply:noReply?'无需回复（原文明确）':mustReply?'需要回复或确认':'未明确，建议核对',source:'本地规则摘要'};
+  return {core:(sentences[0]||'').slice(0,180)||normalized.slice(0,180),todos,deadline:dates.length?dates.join('、'):'未明确，请核对原消息',reply:noReply?'无需回复（原文明确）':mustReply?'需要回复或确认':'未明确，建议核对',urgency:/(紧急|立即|马上|立刻|务必|尽快|加急)/.test(normalized)?'高':todos.length?'中':'低',source:'本地规则摘要'};
 }

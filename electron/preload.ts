@@ -4,6 +4,9 @@ const bridge:Bridge={
  getState:()=>ipcRenderer.invoke('state:get'),saveSettings:settings=>ipcRenderer.invoke('settings:save',settings),
  sendMessage:input=>ipcRenderer.invoke('message:send',input),clearHistory:()=>ipcRenderer.invoke('history:clear'),
  previewContact:contact=>ipcRenderer.invoke('effect:preview',contact),
+ importAsset:()=>ipcRenderer.invoke('asset:import'),getAssetFrames:id=>ipcRenderer.invoke('asset:frames',id),
+ saveAiKey:key=>ipcRenderer.invoke('ai:key-save',key),hasAiKey:()=>ipcRenderer.invoke('ai:key-status'),
+ replyMessage:input=>ipcRenderer.invoke('message:reply',input),restoreMessage:id=>ipcRenderer.invoke('message:restore',id),hidePet:()=>ipcRenderer.invoke('pet:hide'),showPet:()=>ipcRenderer.invoke('pet:show'),
  openPanel:()=>ipcRenderer.invoke('panel:open'),quit:()=>ipcRenderer.invoke('app:quit'),
  onState:callback=>{const listener=(_:unknown,state:State)=>callback(state);ipcRenderer.on('state:changed',listener);return()=>ipcRenderer.removeListener('state:changed',listener);},
  onMessage:callback=>{const listener=(_:unknown,message:Message)=>callback(message);ipcRenderer.on('message:new',listener);return()=>ipcRenderer.removeListener('message:new',listener);}

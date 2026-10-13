@@ -1,15 +1,16 @@
-import {useEffect, useState} from 'react';
+import {useEffect, useState, type CSSProperties} from 'react';
 import {
-  categories, defaultState, type State, type Message, type Contact, type Category, type CharacterSkin,
+  categories, defaultState, type State, type Message, type Contact, type Category, type CharacterSkin, type CharacterId,
 } from './lib/model';
 import {
-  actionLabels, cardSkins, characterSkins, hasPersonalEffects, isKneeling, messageEffects, resolveEffects,
+  actionLabels, cardSkins, characterSkins, characterRoster, characterLabels, hasPersonalEffects, isKneeling, messageEffects, resolveEffects,
 } from './lib/effects';
 import {Character} from './components/Character';
 import {MessageCard} from './components/MessageCard';
 import {ContactEditor} from './components/ContactEditor';
 import {EffectPreview} from './components/EffectPreview';
 import {SceneEffects} from './components/SceneEffects';
+import {AiSettings} from './components/AiSettings';
 
 export function App() {
   const [state, setState] = useState<State>(structuredClone(defaultState));
@@ -39,41 +40,37 @@ export function App() {
 function Pet({state, error}: {state: State; error: string}) {
   const [message, setMessage] = useState<Message | null>(null);
   const [action, setAction] = useState('idle');
+  const [dismissed,setDismissed]=useState<Message|null>(null);
+  const [punch,setPunch]=useState(0);
   const [entry, setEntry] = useState(0);
   useEffect(() => window.judge?.onMessage(m => {
-    setMessage(m);
+    setMessage(m);setDismissed(null);
     setEntry(v => v + 1);
     setAction(messageEffects(m).action);
   }), []);
-  useEffect(() => {
-    if (message) return;
-    const actions = ['idle', 'fish', 'yawn'];
-    let index = 0;
-    const timer = setInterval(() => {
-      index = (index + 1) % actions.length;
-      setAction(actions[index]);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [message]);
   const effect = message ? messageEffects(message) : null;
+  const character = effect?.character ?? state.pet.character;
   return <main className="pet-stage">
     <div className="pet-toolbar">
       <span className="drag-handle" title="按住拖动窗口">⠿ 拖动小判官</span>
       <button onClick={() => window.judge.openPanel()}>控制台</button>
+      <button onClick={() => window.judge.hidePet()}>隐藏</button>
       <button title="退出应用" onClick={() => window.judge.quit()}>退出</button>
     </div>
     {error && <p className="error">{error}</p>}
-    <div key={entry} className={'pet-scene ' + (effect ? 'entry-' + effect.entry : '') + (effect && isKneeling(effect.action) ? ' slide-kneel' : '')}>
+    <div key={entry} style={{'--entry-duration':(effect?.duration??1.2)+'s'} as CSSProperties} className={'pet-scene ' + (effect ? 'entry-' + effect.entry : '') + (effect?.entry==='slide' && isKneeling(effect.action) ? ' slide-kneel' : '')}>
       {effect && <SceneEffects gag={effect.gag}/>}
-      {message && <MessageCard key={message.id} message={message}
-        onClose={() => { setMessage(null); setAction('idle'); }}
-        onStay={() => setAction(effect!.action)}/>}
+      {message && <MessageCard key={message.id} message={state.history.find(m=>m.id===message.id)??message}
+        onClose={() => {setDismissed(message);setMessage(null);setAction('idle')}}
+        onIgnore={() => {setDismissed(message);setMessage(null);setAction('idle')}}
+        onElbow={()=>setPunch(v=>v+1)}/>}
       {!message && <div className="idle-bubble">
-        {action === 'fish' ? '驼峰装工作，脑子装摸鱼。' : action === 'yawn' ? '不是驼困了，是班太长了。' : '工资到位，驼峰归位。'}
+        {action === 'fish' ? '带薪摸鱼，也是努力的一种。' : action === 'yawn' ? '不是我困了，是班太长了。' : '工作各显神通，摸鱼心意相通。'}
       </div>}
-      <div className="pet-drag" title="按住骆驼拖动窗口">
-        <Character action={action} name={state.pet.name} color={state.pet.color} skin={effect?.characterSkin ?? state.pet.skin}/>
-        <span className="pet-name">{state.pet.name} · 工位驼</span>
+      {dismissed&&!message&&<button className="restore-chip" onClick={()=>{setMessage(dismissed);setAction('stand');setDismissed(null)}}>重新查看 · {dismissed.contact.name}</button>}
+      <div key={punch} className={"pet-drag "+(punch?'elbow-nudge':'')} title="按住人物拖动窗口">
+        <Character character={character} action={action} name={state.pet.name} color={state.pet.color} skin={effect?.characterSkin ?? state.pet.skin} duration={effect?.duration} assetId={effect?.assetId ?? (!message?state.pet.assetId:null)}/>
+        <span className="pet-name">{state.pet.name} · {characterLabels[character]}</span>
       </div>
     </div>
   </main>;
@@ -83,20 +80,22 @@ function Panel({state, ready, error, setError}: {
   state: State; ready: boolean; error: string; setError: (s: string) => void;
 }) {
   const [tab, setTab] = useState('测试面板');
-  const [selected, setSelected] = useState('annoying');
+  const [selected, setSelected] = useState('bigSilly');
   const [editingId, setEditingId] = useState(state.contacts[0]?.id ?? '');
   const [text, setText] = useState('麻烦明天下午3点前整理本周项目进度，发给我确认。收到请回复，谢谢。');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [last, setLast] = useState<Message | null>(null);
   const [newName, setNewName] = useState('');
-  const [newCategory, setNewCategory] = useState<Category>('普通同事');
+  const [newCategory, setNewCategory] = useState<Category>('NPC同事');
   const [skinDraft, setSkinDraft] = useState<CharacterSkin>(state.pet.skin);
+  const [characterDraft, setCharacterDraft] = useState<CharacterId>(state.pet.character);
   useEffect(() => {
     if (!state.contacts.some(c => c.id === selected)) setSelected(state.contacts[0]?.id ?? '');
     if (!state.contacts.some(c => c.id === editingId)) setEditingId(state.contacts[0]?.id ?? '');
   }, [state.contacts, selected, editingId]);
   useEffect(() => { setSkinDraft(state.pet.skin); }, [state.pet.skin]);
+  useEffect(() => { setCharacterDraft(state.pet.character); }, [state.pet.character]);
 
   async function execute(task: () => Promise<unknown>, success: string) {
     setBusy(true); setError(''); setNotice('');
@@ -114,28 +113,28 @@ function Panel({state, ready, error, setError}: {
   return <main className="dashboard">
     <aside>
       <div className="brand-icon">判</div>
-      <h1>职场小判官<span>驼得起工作，放得下包袱</span></h1>
+      <h1>职场小判官<span>每人一张脸，消息各有戏</span></h1>
       <nav>{['测试面板', '联系人', '消息历史', '人物设置'].map(t =>
         <button key={t} className={tab === t ? 'active' : ''} onClick={() => { setTab(t); setNotice(''); }}>{t}</button>
       )}</nav>
-      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>圆润连帽驼 / 0.3.0</p></div>
+      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>七类人物 MVP / 0.5.0</p></div>
     </aside>
 
     <section className="workspace">
-      <header><div><span className="eyebrow">职场有点苦，驼驼有点逗</span><h2>{tab}</h2></div>
-        <span className="pill">{state.ai.enabled ? '本地 AI 模式' : '离线规则模式'}</span></header>
+      <header><div><span className="eyebrow">职场有点苦，角色有点逗</span><h2>{tab}</h2></div>
+        <button onClick={()=>window.judge.showPet()}>显示桌宠</button><span className="pill">{state.ai.enabled ? (state.ai.provider==='ollama'?'本地 AI 模式':'在线 AI 模式') : '离线规则模式'}</span></header>
       {error && <p role="alert" className="error">{error}</p>}
       {notice && <p role="status" className="notice">{notice}</p>}
 
       {tab === '测试面板' && <>
         <div className="intro">
-          <div><span className="eyebrow">一只很会看人下菜的工位驼</span><h3>驼峰不大，职场戏挺多。</h3>
+          <div><span className="eyebrow">七类人物，各有进场剧本</span><h3>谁来消息，谁的专属角色出场。</h3>
             <p>同一条消息，换个人发，就是另一出戏。</p>
             <div className="category-pills">{categories.map(c =>
               <span key={c}>{c} · {actionLabels[resolveEffects({id: 'sample', name: c, category: c}).action]}</span>
             )}</div>
           </div>
-          <Character action={chosen ? resolveEffects(chosen, state.pet).action : 'idle'} skin={chosen ? resolveEffects(chosen, state.pet).characterSkin : state.pet.skin} color={state.pet.color}/>
+          <Character character={chosen ? resolveEffects(chosen, state.pet).character : state.pet.character} action={chosen ? resolveEffects(chosen, state.pet).action : 'idle'} skin={chosen ? resolveEffects(chosen, state.pet).characterSkin : state.pet.skin} color={state.pet.color} assetId={chosen?resolveEffects(chosen,state.pet).assetId:null}/>
         </div>
         <form onSubmit={e => {
           e.preventDefault();
@@ -150,34 +149,34 @@ function Panel({state, ready, error, setError}: {
             <button className="primary" disabled={!ready || busy || !text.trim() || !selected}>{busy ? '正在送达…' : '发送并触发动画 ↗'}</button></div>
         </form>
         {chosen && <div className="selected-effect">
-          <div><h3>{chosen.name}的出场剧本</h3><p className="description">人物、台词、卡片与特效都可以在联系人中单独设置。</p>
+          <div><h3>{chosen.name}的出场剧本</h3><p className="description">人物、进场、素材、时长和皮肤都可以单独设置。</p>
             <button disabled={!ready || busy} onClick={() => preview(chosen)}>播放桌面预览</button>
             <button onClick={() => { setEditingId(chosen.id); setTab('联系人'); }}>设置这个人的效果</button></div>
           <EffectPreview contact={chosen} pet={state.pet}/>
         </div>}
-        {last && <div className="preview"><h3>最近一次判读</h3><MessageCard key={last.id} message={last}/></div>}
-        <p className="footnote">默认离线规则摘要，可启用本机 Ollama AI；AI 不可用时明确提示降级。相对日期保留原文，请核对消息。</p>
+        {last && <div className="preview"><h3>最近一次判读</h3><MessageCard key={last.id} message={state.history.find(m=>m.id===last.id)??last}/></div>}
+        <p className="footnote">默认规则解析，未调用 AI。可选本机 Ollama 或在线 AI；未配置密钥或服务不可用时明确提示降级。相对日期保留原文，请核对消息。</p>
       </>}
 
       {tab === '联系人' && <>
-        <p className="description">先选择类别，再给每个人定制动作、进场方式、双层皮肤、搞笑特效和吐槽台词。历史保留收到消息时的效果。</p>
+        <p className="description">先选择发消息的人，再指定专属角色、进场方式、卡片皮肤、搞笑特效和台词，人物动作统一保持轻微晃动。历史保留收到消息时的效果。</p>
         <div className="contacts">{state.contacts.map(c => {
           const effect = resolveEffects(c, state.pet);
           return <div className={'contact-row ' + (editingId === c.id ? 'selected' : '')} key={c.id}>
             <div className="avatar">{c.name.slice(0, 1)}</div>
             <button className="contact-name" aria-label={'自定义' + c.name + '的效果'} onClick={() => setEditingId(c.id)}>
-              <strong>{c.name}</strong><small>{hasPersonalEffects(c) ? '个性剧本' : '类别默认'} · {actionLabels[effect.action]}</small>
+              <strong>{c.name}</strong><small>{characterLabels[effect.character]} · {hasPersonalEffects(c) ? '个性剧本' : '类别默认'}</small>
             </button>
             <select aria-label={c.name + '的类别'} value={c.category} disabled={!ready || busy} onChange={e =>
               void execute(() => save(state.contacts.map(v => v.id === c.id ? {...v, category: e.target.value as Category} : v)), '联系人类别已保存。')
-            }>{categories.map(t => <option key={t}>{t}</option>)}</select>
+            }>{!categories.includes(c.category as typeof categories[number])&&<option>{c.category}</option>}{categories.map(t => <option key={t}>{t}</option>)}</select>
             <button disabled={!ready || busy} onClick={() => {
               if (confirm('删除联系人「' + c.name + '」？已有消息历史会保留。'))
                 void execute(() => save(state.contacts.filter(v => v.id !== c.id)), '联系人已删除。');
             }}>删除</button>
           </div>;
         })}</div>
-        {editing && <ContactEditor key={JSON.stringify(editing)} contact={editing} pet={state.pet} busy={!ready || busy}
+        {editing && <ContactEditor key={JSON.stringify(editing)} contact={editing} pet={state.pet} assets={state.assets} busy={!ready || busy}
           onSave={draft => void execute(() => save(state.contacts.map(c => c.id === draft.id ? draft : c)), '个性效果已保存。')}
           onPreview={preview}/>}
         <form className="add-contact" onSubmit={e => {
@@ -201,47 +200,46 @@ function Panel({state, ready, error, setError}: {
               void execute(() => window.judge.clearHistory(), '历史已清空。');
           }}>清空历史</button></div>
         {state.history.length ? state.history.map(m => <div className="history-item" key={m.id}>
-          <time>{new Date(m.createdAt).toLocaleString('zh-CN')}</time><MessageCard message={m}/>
-        </div>) : <div className="empty">还没有消息。去测试面板让工位驼接个活吧。</div>}
+          <time>{new Date(m.createdAt).toLocaleString('zh-CN')}</time><button onClick={()=>void execute(()=>window.judge.restoreMessage(m.id),'历史消息已恢复到桌面。')}>恢复到桌面</button><MessageCard message={m}/>
+        </div>) : <div className="empty">还没有消息。去测试面板让桌宠接个活吧。</div>}
       </>}
 
       {tab === '人物设置' && <>
-        <div className="settings-title"><div><h3>换套皮肤，换个上班心情。</h3><p className="description">这是待机和默认人物皮肤。联系人的专属皮肤优先，关闭消息后恢复这里的设置。</p></div></div>
-        <div className="skin-gallery" role="group" aria-label="默认人物皮肤">{characterSkins.map(s =>
-          <button key={s.id} type="button" className={'skin-choice ' + (skinDraft === s.id ? 'selected' : '')} aria-pressed={skinDraft === s.id} aria-label={s.name} onClick={() => setSkinDraft(s.id)}>
-            <Character skin={s.id} color={state.pet.color}/><strong>{s.name}</strong><small>{s.description}</small>
+        <div className="settings-title"><div><h3>选个待机角色，给每个人安排一张脸。</h3><p className="description">七类人物使用 Word 中的本地图片与 Lottie 轮廓动画，保持原图姿态。这里选择没有消息时的默认角色；来消息时使用联系人的角色，关闭卡片后恢复待机角色。</p></div></div>
+        <div className="character-gallery" role="group" aria-label="七类原创人物">{characterRoster.map(c =>
+          <button type="button" className={'character-choice '+(characterDraft===c.id?'selected':'')} key={c.id}
+            aria-label={c.name} aria-pressed={characterDraft===c.id} onClick={()=>setCharacterDraft(c.id)}>
+            <Character character={c.id}/><strong>{c.name}</strong><small>{c.description}</small>
           </button>
         )}</div>
-        <div className="pose-gallery" role="group" aria-label="站姿与跪姿对比">
-          {(['idle', 'kneel', 'panic'] as const).map((pose, index) => <div className="pose-sample" key={pose}>
-            <Character action={pose} skin={skinDraft} color={state.pet.color}/>
-            <strong>{['元气站姿', '双膝跪地举牌', '崩溃跪地举牌'][index]}</strong>
-            <small>{['大圆眼、护目镜、连帽衫', '折腿、双膝落地、身体下沉', '保留跪姿，再加发抖和汗滴'][index]}</small>
-          </div>)}
-        </div>
+        <details className="legacy-character"><summary>保留旧版骆驼</summary>
+          <button type="button" aria-pressed={characterDraft==='camel'} onClick={()=>setCharacterDraft('camel')}>选择连帽衫骆驼</button>
+        <div className="skin-gallery" role="group" aria-label="默认人物皮肤">{characterSkins.map(s =>
+          <button key={s.id} type="button" className={'skin-choice ' + (skinDraft === s.id ? 'selected' : '')} aria-pressed={skinDraft === s.id} aria-label={s.name} onClick={() => {setSkinDraft(s.id);setCharacterDraft('camel');}}>
+            <Character character="camel" skin={s.id} color={state.pet.color}/><strong>{s.name}</strong><small>{s.description}</small>
+          </button>
+        )}</div>
+        </details>
         <form key={state.pet.name + '-' + state.pet.color} onSubmit={e => {
           e.preventDefault();
           const data = new FormData(e.currentTarget);
-          void execute(() => save(state.contacts, {name: String(data.get('name')).trim(), color: String(data.get('color')) as State['pet']['color'], skin: skinDraft}), '人物设置已保存。');
+          void execute(() => save(state.contacts, {...state.pet,name: String(data.get('name')).trim(), color: String(data.get('color')) as State['pet']['color'], skin: skinDraft, character:characterDraft,assetId:String(data.get('assetId'))||null,alwaysOnTop:data.get('alwaysOnTop')==='on'}), '人物设置已保存。');
         }}>
           <label>小判官昵称<input name="name" defaultValue={state.pet.name} required maxLength={20}/></label>
           <label>工服颜色<select name="color" defaultValue={state.pet.color}>{['薄荷绿', '蜜桃粉', '奶油黄'].map(c => <option key={c}>{c}</option>)}</select>
-            <small>沙漠社畜使用此工服颜色；其他皮肤使用各自的服饰配色。</small></label>
+            <small>工服颜色用于旧版骆驼；原创人物使用下面的皮肤配色。</small></label>
+          <label>默认人物皮肤<select value={skinDraft} onChange={e=>setSkinDraft(e.target.value as CharacterSkin)}>{characterSkins.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+          <label>待机自定义素材<select name="assetId" defaultValue={state.pet.assetId??''}><option value="">使用内置人物</option>{state.assets.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
+          <label className="checkbox-label"><input name="alwaysOnTop" type="checkbox" defaultChecked={state.pet.alwaysOnTop}/>桌面窗口置顶</label>
           <button className="primary" disabled={!ready || busy}>保存人物设置</button>
         </form>
         <div className="card-skin-samples">{cardSkins.map(s => <div key={s.id} className={'preview-card card-' + s.id}><small>消息卡片皮肤</small><p>{s.name}</p></div>)}</div>
-        <p className="description">拖动骆驼或顶部拖动区移动窗口。消息持续显示，直到关闭或下一条消息到来。关闭控制台不会退出桌宠。</p>
-        <form className="ai-settings" key={state.ai.enabled + '-' + state.ai.model} onSubmit={e => {
-          e.preventDefault();
-          const data = new FormData(e.currentTarget);
-          void execute(() => window.judge.saveSettings({contacts: state.contacts, pet: state.pet, ai: {
-            enabled: data.get('enabled') === 'on', model: String(data.get('model')).trim(),
-          }}), '摘要模式已保存。');
-        }}><h3>本地 AI 摘要</h3><p className="description">使用本机 Ollama（127.0.0.1:11434），消息仅发送到本机。先运行 ollama pull qwen2.5:3b；安装方式见说明文档。</p>
-          <label className="checkbox-label"><input type="checkbox" name="enabled" defaultChecked={state.ai.enabled}/>启用本地 AI（失败时降级并提示）</label>
-          <label>Ollama 模型名称<input name="model" defaultValue={state.ai.model} required maxLength={80}/></label>
-          <button className="primary" disabled={!ready || busy}>保存摘要模式</button>
-        </form>
+        <p className="description">拖动人物或顶部拖动区移动窗口。消息持续显示，直到关闭或下一条消息到来。关闭控制台不会退出桌宠。</p>
+        <section className="asset-library"><h3>自定义人物素材</h3><p className="description">上传 PNG / JPG / WebP 静态图，GIF 动画，或一次选择多张图片作为序列帧（按文件名数字排序）。素材复制到本机，可在每个联系人或待机设置中选择。图片不会自动变成跪姿。</p>
+        <button disabled={!ready||busy} onClick={()=>void execute(()=>window.judge.importAsset(),'素材选择已完成，上传成功的素材显示在下方。')}>上传图片 / GIF / 序列帧</button>
+        <div className="asset-grid">{state.assets.map(a=><div className="asset-item" key={a.id}><Character character="npc" assetId={a.id}/><strong>{a.name}</strong><small>{a.kind==='sequence'?'序列帧 · '+a.files.length+' 帧':a.kind==='gif'?'GIF 动画':'静态图片'}</small></div>)}</div></section>
+        <AiSettings key={JSON.stringify(state.ai)} state={state} busy={!ready||busy} execute={(task,success)=>void execute(task,success)}/>
+        <div className="editor-actions"><button onClick={()=>window.judge.showPet()}>显示桌宠</button><button onClick={()=>window.judge.hidePet()}>隐藏桌宠</button></div>
         <button className="quit-button" onClick={() => window.judge.quit()}>退出职场小判官</button>
       </>}
     </section>
