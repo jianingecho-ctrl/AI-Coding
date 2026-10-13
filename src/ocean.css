@@ -1,0 +1,56 @@
+/* 控制台海洋主题；所有装饰都位于内容背后，且不拦截鼠标。 */
+:root { background:#e4f3ff; }
+.dashboard { position:relative; isolation:isolate; color:#153d61; background:linear-gradient(150deg,#e6f6ff 0%,#b8def3 54%,#6cadd2 100%); }
+.ocean-backdrop { position:fixed; inset:0 0 0 210px; z-index:-1; overflow:hidden; pointer-events:none; background:radial-gradient(ellipse at 18% 4%,#f5fcff 0%,transparent 56%),linear-gradient(160deg,#d3f0fc 0%,#a4d3ed 55%,#4393c1 100%); }
+.ocean-light { position:absolute; top:-40%; left:22%; width:110%; height:140%; transform:rotate(-18deg); opacity:.5; background:repeating-linear-gradient(105deg,transparent 0 90px,#effaff60 110px 135px,transparent 185px 265px); filter:blur(16px); }
+.ocean-waves { position:absolute; bottom:-10px; width:125%; height:52%; animation:ocean-sway 22s ease-in-out infinite alternate; }
+.ocean-bubbles span { position:absolute; border:1px solid #ffffffad; box-shadow:inset 2px 2px 4px #ffffff80; border-radius:50%; background:#ffffff16; animation:ocean-bubble 18s ease-in-out infinite; }
+.dashboard aside { z-index:3; color:#effaff; background:radial-gradient(ellipse at 0 100%,#167da6 0%,transparent 68%),linear-gradient(175deg,#103e66,#075b85); border-color:#ffffff20; box-shadow:8px 0 35px #0d4f6c10; overflow:hidden; }
+.dashboard aside::after { content:''; position:absolute; width:420px; height:220px; border-radius:48%; background:#62d3eb13; bottom:-150px; left:-120px; transform:rotate(-18deg); pointer-events:none; }
+.dashboard .brand-icon { background:linear-gradient(145deg,#a1f1ff,#42b0db); color:#073855; box-shadow:0 6px 16px #001b352b; }
+.dashboard h1 span { color:#b6dce9; letter-spacing:1px; }
+.dashboard nav button { color:#d6edf9; }
+.dashboard nav button:hover { background:#a6eaff17; }
+.dashboard nav .active,.dashboard nav .active:hover { background:linear-gradient(100deg,#47badf,#2192c2); color:#fff; box-shadow:0 5px 14px #002d5150; }
+.dashboard .aside-bottom { color:#c7e8f5; position:relative; z-index:1; }
+.dashboard .status-dot { background:#88e9f4; box-shadow:0 0 8px #72ebf688; }
+.dashboard .workspace { position:relative; z-index:1; }
+.dashboard .eyebrow { color:#416783; }
+.dashboard .pill { color:#205376; background:#edfaffdb; border:1px solid #fff9; }
+.dashboard button { color:#205478; border-color:#aacbdf; background:#f6fcff; }
+.dashboard button:hover { background:#e0f3fc; }
+.dashboard button:focus-visible,.dashboard input:focus-visible,.dashboard textarea:focus-visible,.dashboard select:focus-visible { outline-color:#35a8d4; }
+.dashboard .primary { color:#fff; border-color:#1f81b4; background:linear-gradient(135deg,#299ece,#146b9f); box-shadow:0 4px 10px #0e709a20; }
+.dashboard .primary:hover { background:#156d9f; }
+.dashboard .intro { background:radial-gradient(ellipse at 88% 68%,#f0fdff85 0%,transparent 42%),linear-gradient(115deg,#edfaffea,#a5dcefdd); border:1px solid #ffffffdc; box-shadow:0 12px 28px #1b658c14; }
+.dashboard .intro p { color:#365f7c; }
+.dashboard .category-pills span { background:#f0fbffd6; color:#2e6484; border-color:#a4d0e4; }
+.dashboard form,.dashboard .contact-editor,.dashboard .selected-effect,.dashboard .asset-library { background:#f7fcffe8; border-color:#ffffffc7; box-shadow:0 8px 25px #145b7d0b; backdrop-filter:blur(10px); }
+.dashboard .contact-editor { background:#d8edf8c9; }
+.dashboard .selected-effect { background:#e7f7ffcc; }
+.dashboard .asset-library { background:#dceffaca; }
+.dashboard input,.dashboard textarea,.dashboard select { color:#173f60; background:#f8fdff; border-color:#b6d4e5; }
+.dashboard label small,.dashboard .description,.dashboard .footnote,.dashboard .form-footer small,.dashboard .effect-caption { color:#456882; }
+.dashboard .notice { background:#daf3fc; color:#175a7a; border:1px solid #88c6e2; }
+.dashboard .contact-row { border-color:#a6ccdf7a; }
+.dashboard .contact-row.selected { background:#f3fbffbc; box-shadow:inset 3px 0 0 #39a2ca; }
+.dashboard .contact-name { background:transparent; border:0; }
+.dashboard .contact-name:hover { background:#ffffff50; }
+.dashboard .contact-name small { color:#48708b; }
+.dashboard .avatar { background:#c1e5f6; color:#185b7c; }
+.dashboard .effect-preview-stage { background:radial-gradient(ellipse at 50% 0,#f8fdff 0,#bce3f4 70%); border:1px solid #edfaff; }
+.dashboard .history-top,.dashboard .history-item time { color:#315e7c; }
+.dashboard .empty { color:#305f7e; border-color:#78adc9; background:#f6fcff80; }
+.dashboard .character-choice,.dashboard .skin-choice { background:#f4fcffdc; border-color:#d1eaf5; }
+.dashboard .character-choice.selected,.dashboard .skin-choice.selected { background:#e2f5fff0; border-color:#228ebc; box-shadow:0 6px 16px #1d648c14; }
+.dashboard .character-choice small,.dashboard .skin-choice small { color:#416982; }
+.dashboard .legacy-character { background:#d2eaf68c; border-color:#a6cddf; }
+.dashboard .legacy-character summary { color:#285f7e; }
+.dashboard .asset-item { background:#f4fcff; }
+.dashboard .ignored-card { background:#e1f2fc; }
+@keyframes ocean-sway { from{transform:translateX(-2%) translateY(3%)} to{transform:translateX(-10%) translateY(0)} }
+@keyframes ocean-bubble { 0%,100%{transform:translateY(8px);opacity:.4} 50%{transform:translateY(-20px);opacity:.85} }
+@media (prefers-reduced-motion:reduce) { .ocean-waves,.ocean-bubbles span { animation:none; } }
+.dashboard aside nav button { background:transparent; border:0; color:#e0f3ff; box-shadow:none; }
+.dashboard aside nav button:hover { background:#a6eaff17; }
+.dashboard aside nav button.active,.dashboard aside nav button.active:hover { background:linear-gradient(100deg,#47badf,#2192c2); color:#fff; box-shadow:0 5px 14px #002d5150; }

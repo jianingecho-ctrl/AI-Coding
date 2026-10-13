@@ -28,10 +28,18 @@ const path=require('node:path');
   for(let i=0;i<roles.length;i++){
    await send(panel,ids[i]);await expect(pet.locator('[data-character="'+roles[i]+'"]')).toBeVisible();await readyImage(pet);
    expect(await pet.locator('.pet-scene').getAttribute('class')).toContain('entry-'+entries[i]);
-   expect(await pet.locator('.reference-character image').first().getAttribute('href')).toContain('/references/'+roles[i]);
+   expect(await pet.locator('.reference-character image').first().getAttribute('href')).toContain((roles[i]==='leader'?'/references/':'/characters/')+roles[i]);
    const initial=await pet.locator('.reference-character').evaluate(e=>Array.from(e.querySelectorAll('g[transform]')).map(g=>g.getAttribute('transform')).join('|'));await expect.poll(()=>pet.locator('.reference-character').evaluate(e=>Array.from(e.querySelectorAll('g[transform]')).map(g=>g.getAttribute('transform')).join('|'))).not.toBe(initial);frames.add(roles[i]);
   }
   expect(frames.size).toBe(7);
+  // 真正验证 PNG 透明通道；素材的空白区域不会显示海报矩形。
+  for(const id of roles.filter(id=>id!=='leader')){
+   const bytes=await readFile('public/characters/'+id+'.png');
+   const alpha=await panel.evaluate(async encoded=>{const image=new Image();image.src='data:image/png;base64,'+encoded;await image.decode();const canvas=document.createElement('canvas');canvas.width=128;canvas.height=128;const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0,128,128);const data=ctx.getImageData(0,0,128,128).data;let transparent=0,solid=0;for(let p=3;p<data.length;p+=4){if(data[p]<=2)transparent++;if(data[p]>=230)solid++;}return {corners:[data[3],data[127*4+3],data[(128*127)*4+3],data[data.length-1]],transparent:transparent/(128*128),solid:solid/(128*128)}},bytes.toString('base64'));
+   expect(alpha.corners.every(a=>a<=2)).toBe(true);expect(alpha.transparent).toBeGreaterThan(.15);expect(alpha.solid).toBeGreaterThan(.1);
+  }
+  expect(await panel.locator('.ocean-backdrop').getAttribute('aria-hidden')).toBe('true');expect(await panel.locator('.ocean-backdrop').evaluate(e=>getComputedStyle(e).pointerEvents)).toBe('none');
+
   await send(panel,'bigSilly');await expect(pet.locator('[data-pose="reference"]')).toBeVisible();
   await pet.locator('.pet-scene').evaluate(async e=>{await Promise.all(e.getAnimations().map(a=>a.finished.catch(()=>{})))});
   await pet.screenshot({path:'test-results/mvp-message.png',omitBackground:true});
@@ -46,7 +54,7 @@ const path=require('node:path');
   await pet.getByRole('button',{name:'忽略',exact:true}).click();await pet.getByRole('button',{name:'重新查看 · 甩锅达人'}).click();await expect(pet.locator('.local-replies')).toContainText('收到，明天下午3点前提交。');
   const replied=await panel.evaluate(async()=> (await window.judge.getState()).history[0]);expect(replied.replies[0].text).toBe('收到，明天下午3点前提交。');
   await pet.getByRole('button',{name:'关闭',exact:true}).click();await expect(pet.locator('[data-character="npc"]')).toBeVisible();
-  await panel.getByRole('button',{name:'人物设置',exact:true}).click();await panel.getByRole('group',{name:'七类原创人物'}).screenshot({path:'test-results/mvp-roles.png'});
+  await panel.getByRole('button',{name:'人物设置',exact:true}).click();await panel.getByRole('group',{name:'七类消息人物'}).screenshot({path:'test-results/mvp-roles.png'});
   // UI 实际修改人物、时长、皮肤，桌面预览不增加历史。
   await panel.getByRole('button',{name:'联系人',exact:true}).click();await panel.getByRole('button',{name:'自定义甩锅达人的效果'}).click();
   const editor=panel.getByRole('region',{name:'个性效果编辑器'});
@@ -82,8 +90,8 @@ const path=require('node:path');
   const disk=JSON.parse(await readFile(path.join(data,'judge-state.json'),'utf8'));expect(JSON.stringify(disk)).not.toContain('apiKey');
   await panel.evaluate(async()=>{try{await window.judge.getAssetFrames('../../private');throw Error('未拒绝')}catch(e){if(String(e).includes('未拒绝'))throw e}});
   await pet.emulateMedia({reducedMotion:'reduce'});await panel.evaluate(async()=>{const s=await window.judge.getState();await window.judge.previewContact(s.contacts[1])});await expect(pet.locator('[data-character="honest"]')).toBeVisible();expect(await pet.locator('.pet-scene').evaluate(e=>getComputedStyle(e).animationName)).toBe('none');
-  await panel.screenshot({path:'test-results/mvp-panel.png'});await panel.getByRole('button',{name:'消息历史',exact:true}).click();await panel.getByRole('button',{name:'恢复到桌面',exact:true}).first().click();await expect(pet.locator('.message-card')).toBeVisible();if(errors.length)throw Error(errors.join('\n'));
-  console.log('Electron 桌面验收通过：七张 Word 原图/Lottie 动画、七种进场、回复消息/肘击/忽略、个人优先级/时长/皮肤、真实文件导入与显示（图片/GIF/序列帧）、隐藏恢复/置顶、无密钥规则降级、重启持久化与减少动态效果。');
+  await panel.getByRole('button',{name:'测试面板',exact:true}).click();await panel.screenshot({path:'test-results/mvp-panel.png'});await panel.getByRole('button',{name:'消息历史',exact:true}).click();await panel.getByRole('button',{name:'恢复到桌面',exact:true}).first().click();await expect(pet.locator('.message-card')).toBeVisible();if(errors.length)throw Error(errors.join('\n'));
+  console.log('Electron 桌面验收通过：七类精细人物/Lottie 动画与透明通道、海洋控制台、七种进场、回复消息/肘击/忽略、个人优先级/时长/皮肤、真实文件导入与显示（图片/GIF/序列帧）、隐藏恢复/置顶、无密钥规则降级、重启持久化与减少动态效果。');
  }catch(e){if(app)for(const page of app.windows())await page.screenshot({path:'test-results/failure-'+(page.url().includes('pet')?'pet':'panel')+'.png'}).catch(()=>{});throw e;}
  finally{if(app)await app.close().catch(()=>{});await rm(data,{recursive:true,force:true});await rm(source,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1});

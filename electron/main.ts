@@ -26,7 +26,7 @@ function load(window:BrowserWindow,view:string){
 function options(){return {preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true};}
 function openPanel(){
  if(panel&&!panel.isDestroyed()){panel.show();panel.focus();return;}
- panel=new BrowserWindow({width:1020,height:820,minWidth:800,minHeight:640,title:'职场小判官 · 控制台',backgroundColor:'#f4f7f4',webPreferences:options()});
+ panel=new BrowserWindow({width:1020,height:820,minWidth:800,minHeight:640,title:'职场小判官 · 控制台',backgroundColor:'#d3f0fc',webPreferences:options()});
  load(panel,'panel');panel.on('closed',()=>{panel=null;});
 }
 function broadcast(state:State){for(const w of BrowserWindow.getAllWindows())w.webContents.send('state:changed',state);}

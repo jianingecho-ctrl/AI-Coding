@@ -3,7 +3,7 @@ import {
   categories, defaultState, type State, type Message, type Contact, type Category, type CharacterSkin, type CharacterId,
 } from './lib/model';
 import {
-  actionLabels, cardSkins, characterSkins, characterRoster, characterLabels, hasPersonalEffects, isKneeling, messageEffects, resolveEffects,
+  entryLabels, cardSkins, characterSkins, characterRoster, characterLabels, hasPersonalEffects, isKneeling, messageEffects, resolveEffects,
 } from './lib/effects';
 import {Character} from './components/Character';
 import {MessageCard} from './components/MessageCard';
@@ -11,6 +11,8 @@ import {ContactEditor} from './components/ContactEditor';
 import {EffectPreview} from './components/EffectPreview';
 import {SceneEffects} from './components/SceneEffects';
 import {AiSettings} from './components/AiSettings';
+import {OceanBackdrop} from './components/OceanBackdrop';
+import './ocean.css';
 
 export function App() {
   const [state, setState] = useState<State>(structuredClone(defaultState));
@@ -111,13 +113,14 @@ function Panel({state, ready, error, setError}: {
   }
 
   return <main className="dashboard">
+    <OceanBackdrop/>
     <aside>
       <div className="brand-icon">判</div>
       <h1>职场小判官<span>每人一张脸，消息各有戏</span></h1>
       <nav>{['测试面板', '联系人', '消息历史', '人物设置'].map(t =>
         <button key={t} className={tab === t ? 'active' : ''} onClick={() => { setTab(t); setNotice(''); }}>{t}</button>
       )}</nav>
-      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>七类人物 MVP / 0.5.0</p></div>
+      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>海洋桌宠版 / 0.5.1</p></div>
     </aside>
 
     <section className="workspace">
@@ -131,7 +134,7 @@ function Panel({state, ready, error, setError}: {
           <div><span className="eyebrow">七类人物，各有进场剧本</span><h3>谁来消息，谁的专属角色出场。</h3>
             <p>同一条消息，换个人发，就是另一出戏。</p>
             <div className="category-pills">{categories.map(c =>
-              <span key={c}>{c} · {actionLabels[resolveEffects({id: 'sample', name: c, category: c}).action]}</span>
+              <span key={c}>{c} · {entryLabels[resolveEffects({id: 'sample', name: c, category: c}).entry]}</span>
             )}</div>
           </div>
           <Character character={chosen ? resolveEffects(chosen, state.pet).character : state.pet.character} action={chosen ? resolveEffects(chosen, state.pet).action : 'idle'} skin={chosen ? resolveEffects(chosen, state.pet).characterSkin : state.pet.skin} color={state.pet.color} assetId={chosen?resolveEffects(chosen,state.pet).assetId:null}/>
@@ -206,7 +209,7 @@ function Panel({state, ready, error, setError}: {
 
       {tab === '人物设置' && <>
         <div className="settings-title"><div><h3>选个待机角色，给每个人安排一张脸。</h3><p className="description">七类人物使用 Word 中的本地图片与 Lottie 轮廓动画，保持原图姿态。这里选择没有消息时的默认角色；来消息时使用联系人的角色，关闭卡片后恢复待机角色。</p></div></div>
-        <div className="character-gallery" role="group" aria-label="七类原创人物">{characterRoster.map(c =>
+        <div className="character-gallery" role="group" aria-label="七类消息人物">{characterRoster.map(c =>
           <button type="button" className={'character-choice '+(characterDraft===c.id?'selected':'')} key={c.id}
             aria-label={c.name} aria-pressed={characterDraft===c.id} onClick={()=>setCharacterDraft(c.id)}>
             <Character character={c.id}/><strong>{c.name}</strong><small>{c.description}</small>
