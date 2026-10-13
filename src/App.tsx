@@ -1,4 +1,4 @@
-import {useEffect, useState, type CSSProperties} from 'react';
+import {useEffect, useState, useRef, type CSSProperties} from 'react';
 import {
   categories, defaultState, type State, type Message, type Contact, type Category, type CharacterSkin, type CharacterId,
 } from './lib/model';
@@ -13,6 +13,7 @@ import {SceneEffects} from './components/SceneEffects';
 import {AiSettings} from './components/AiSettings';
 import {OceanBackdrop} from './components/OceanBackdrop';
 import './ocean.css';
+import {DemoPlayer,demoContacts} from './lib/demo';
 
 export function App() {
   const [state, setState] = useState<State>(structuredClone(defaultState));
@@ -50,6 +51,7 @@ function Pet({state, error}: {state: State; error: string}) {
     setEntry(v => v + 1);
     setAction(messageEffects(m).action);
   }), []);
+  useEffect(()=>window.judge?.onMessageCleared(()=>{setMessage(null);setDismissed(null);setAction('idle');setPunch(0);setEntry(v=>v+1)}),[]);
   const effect = message ? messageEffects(message) : null;
   const character = effect?.character ?? state.pet.character;
   return <main className="pet-stage">
@@ -88,6 +90,10 @@ function Panel({state, ready, error, setError}: {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [last, setLast] = useState<Message | null>(null);
+  const demoPlayer=useRef(new DemoPlayer());
+  const [demoRunning,setDemoRunning]=useState(false);
+  const [demoStep,setDemoStep]=useState(0);
+  useEffect(()=>{const player=demoPlayer.current;const off=window.judge?.onMessageCleared(()=>setLast(null));return()=>{player.stop();off?.()}},[]);
   const [newName, setNewName] = useState('');
   const [newCategory, setNewCategory] = useState<Category>('NPC同事');
   const [skinDraft, setSkinDraft] = useState<CharacterSkin>(state.pet.skin);
@@ -112,15 +118,23 @@ function Panel({state, ready, error, setError}: {
     void execute(() => window.judge.previewContact(contact), '桌面预览已播放，未写入消息历史。');
   }
 
+  async function playDemo(){
+    setBusy(true);setDemoRunning(true);setNotice('');setError('');
+    try{const finished=await demoPlayer.current.play(c=>window.judge.previewContact(c),index=>setDemoStep(index));setNotice(finished?'七类人物演示完成，未写入历史，未调用 AI。':'演示已停止。');}
+    catch(e){setError('演示失败：'+String(e));}
+    finally{setBusy(false);setDemoRunning(false);setDemoStep(0);}
+  }
+  function stopDemo(){demoPlayer.current.stop();void window.judge.clearDisplayedMessage().catch(e=>setError(String(e)));}
+
   return <main className="dashboard">
     <OceanBackdrop/>
     <aside>
       <div className="brand-icon">判</div>
       <h1>职场小判官<span>每人一张脸，消息各有戏</span></h1>
       <nav>{['测试面板', '联系人', '消息历史', '人物设置'].map(t =>
-        <button key={t} className={tab === t ? 'active' : ''} onClick={() => { setTab(t); setNotice(''); }}>{t}</button>
+        <button key={t} className={tab === t ? 'active' : ''} onClick={() => {if(demoRunning)stopDemo();setTab(t);setNotice('');}}>{t}</button>
       )}</nav>
-      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>海洋桌宠版 / 0.5.1</p></div>
+      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>海洋桌宠版 / 0.5.2</p></div>
     </aside>
 
     <section className="workspace">
@@ -139,6 +153,12 @@ function Panel({state, ready, error, setError}: {
           </div>
           <Character character={chosen ? resolveEffects(chosen, state.pet).character : state.pet.character} action={chosen ? resolveEffects(chosen, state.pet).action : 'idle'} skin={chosen ? resolveEffects(chosen, state.pet).characterSkin : state.pet.skin} color={state.pet.color} assetId={chosen?resolveEffects(chosen,state.pet).assetId:null}/>
         </div>
+        <section className="demo-controls"><div><h3>一键演示七类人物</h3><p>按默认进场依次播放，不修改联系人，不记录历史，不调用 AI。</p>
+          {demoRunning&&<p role="status">正在演示 {demoStep} / 7 · {demoContacts[Math.max(0,demoStep-1)].category}</p>}</div>
+          <div><button disabled={!ready||busy} onClick={()=>void playDemo()}>一键播放七类人物</button>{demoRunning&&<button onClick={stopDemo}>停止演示</button>}</div></section>
+        <div className="privacy-note"><strong>模拟消息 · V1.0 范围</strong><p>本版只处理你在此输入的模拟数据，未连接真实飞书账号或读取 macOS 通知。</p>
+          <p>{!state.ai.enabled?'AI 分析已关闭：仅本地规则解析，消息不外发。':state.ai.provider==='ollama'?'启用本机 Ollama：仅发送当前消息正文到本机 127.0.0.1:11434。':'启用在线 AI：发送当前模拟消息正文、模型参数和摘要提示到配置的服务；不上传联系人名单、消息历史、回复记录或人物素材。正文中写入的个人信息也会随正文发送。'}</p>
+          {state.ai.enabled&&<button disabled={busy} onClick={()=>void execute(()=>window.judge.saveSettings({contacts:state.contacts,pet:state.pet,ai:{...state.ai,enabled:false}}),'AI 分析已关闭，后续消息仅使用本地规则。')}>关闭 AI 分析</button>}</div>
         <form onSubmit={e => {
           e.preventDefault();
           void execute(async () => setLast(await window.judge.sendMessage({contactId: selected, text})), '消息已送达桌宠，打开桌宠窗口查看动画。');
@@ -149,7 +169,7 @@ function Panel({state, ready, error, setError}: {
           <label>模拟飞书消息<textarea value={text} onChange={e => setText(e.target.value)} maxLength={5000} rows={4}
             placeholder="输入消息内容，如：请明天18点前提交周报，收到请回复。"/></label>
           <div className="form-footer"><small>{text.length} / 5000 · 不会发送给真实联系人</small>
-            <button className="primary" disabled={!ready || busy || !text.trim() || !selected}>{busy ? '正在送达…' : '发送并触发动画 ↗'}</button></div>
+            <button className="primary" disabled={!ready || busy || !text.trim() || !selected}>{busy ? '正在送达…' : '发送测试消息 ↗'}</button></div>
         </form>
         {chosen && <div className="selected-effect">
           <div><h3>{chosen.name}的出场剧本</h3><p className="description">人物、进场、素材、时长和皮肤都可以单独设置。</p>

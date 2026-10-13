@@ -11,14 +11,21 @@ const path=require('node:path');
   await expect.poll(()=>app.windows().filter(p=>p.url().includes('view=')).length).toBe(2);
   const pet=app.windows().find(p=>p.url().includes('view=pet')),panel=app.windows().find(p=>p.url().includes('view=panel'));
   for(const page of [pet,panel])page.on('pageerror',e=>errors.push(e.message));
-  await expect(panel.getByRole('button',{name:'发送并触发动画 ↗'})).toBeEnabled();return {pet,panel};
+  await expect(panel.getByRole('button',{name:'发送测试消息 ↗'})).toBeEnabled();return {pet,panel};
  }
  async function readyImage(page,selector='.character'){if(selector.includes('asset-item')){await expect.poll(()=>page.locator(selector).first().evaluate(img=>img.complete&&img.naturalWidth>0)).toBe(true);return;}await expect(page.locator('.reference-character[data-ready="true"],.frame-character img').first()).toBeVisible();}
- async function send(panel,id){await panel.getByLabel('消息来自').selectOption(id);await panel.getByRole('button',{name:'发送并触发动画 ↗'}).click();await expect(panel.getByRole('status')).toHaveText('消息已送达桌宠，打开桌宠窗口查看动画。');}
+ async function send(panel,id){await panel.getByLabel('消息来自').selectOption(id);await panel.getByRole('button',{name:'发送测试消息 ↗'}).click();await expect(panel.getByRole('status')).toHaveText('消息已送达桌宠，打开桌宠窗口查看动画。');}
  async function pick(files){await app.evaluate(({dialog},paths)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:paths});},files);}
  try{
   await mkdir('test-results',{recursive:true});let {pet,panel}=await launch();await readyImage(pet);
   await expect(pet.locator('[data-character="npc"]')).toBeVisible();
+  // 一键完整演示、停止与隐私边界：只播放预览，全部角色均出现，不写历史。
+  await pet.evaluate(()=>{window.demoCharacters=[];window.judge.onMessage(m=>{if(m.contact.id.startsWith('demo-'))window.demoCharacters.push(m.effect.character)})});
+  await panel.getByRole('button',{name:'一键播放七类人物',exact:true}).click();await expect(panel.getByRole('button',{name:'停止演示',exact:true})).toBeVisible();
+  await expect(panel.getByRole('status')).toHaveText('七类人物演示完成，未写入历史，未调用 AI。',{timeout:40000});
+  expect(await pet.evaluate(()=>window.demoCharacters)).toEqual(['leader','honest','bored','laidback','silly','bigSilly','npc']);expect(await panel.evaluate(async()=> (await window.judge.getState()).history.length)).toBe(0);
+  await panel.getByRole('button',{name:'一键播放七类人物',exact:true}).click();await expect(pet.locator('[data-character="leader"]')).toBeVisible();await panel.getByRole('button',{name:'停止演示',exact:true}).click();await expect(panel.getByRole('status')).toHaveText('演示已停止。');await expect(pet.locator('.message-card')).toHaveCount(0);
+
   const flags=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().map(w=>({top:w.isAlwaysOnTop(),prefs:w.webContents.getLastWebPreferences()})));
   expect(flags.some(w=>w.top)).toBe(true);expect(flags.every(w=>w.prefs.contextIsolation&&!w.prefs.nodeIntegration)).toBe(true);
   expect(await pet.evaluate(()=>getComputedStyle(document.documentElement).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
@@ -84,14 +91,15 @@ const path=require('node:path');
   // 启用在线 AI 但没有 Key：不假装调用，实际弹窗明确规则降级。
   await panel.evaluate(async()=>{const s=await window.judge.getState();await window.judge.saveSettings({contacts:s.contacts,pet:s.pet,ai:{enabled:true,provider:'openai-compatible',model:'test'}})});
   await panel.getByRole('button',{name:'测试面板',exact:true}).click();await send(panel,'boss');await expect(pet.getByText('未配置 API Key，未调用真实 AI，当前使用本地规则解析。')).toBeVisible();
+  await expect(panel.locator('.privacy-note')).toContainText('不上传联系人名单');await panel.getByRole('button',{name:'关闭 AI 分析',exact:true}).click();await expect(panel.locator('.privacy-note')).toContainText('AI 分析已关闭');expect(await panel.evaluate(async()=> (await window.judge.getState()).ai.enabled)).toBe(false);
   await rm(source,{recursive:true,force:true});await app.close();({pet,panel}=await launch());await expect(pet.locator('[data-asset="'+assets[2].id+'"]')).toBeVisible();await readyImage(pet);
   const restored=await panel.evaluate(()=>window.judge.getState());expect(restored.history.length).toBe(count+1);expect(restored.contacts.find(c=>c.id==='bigSilly').effects.duration).toBe(3);expect(restored.assets.length).toBe(3);expect(restored.history.find(m=>m.replies?.length).replies[0].text).toBe('收到，明天下午3点前提交。');
   await panel.evaluate(async()=>{for(const input of [{messageId:'missing',text:'测试'},{messageId:'boss',text:' '}]){let rejected=false;try{await window.judge.replyMessage(input)}catch{rejected=true}if(!rejected)throw Error('非法回复未被拒绝')}});
   const disk=JSON.parse(await readFile(path.join(data,'judge-state.json'),'utf8'));expect(JSON.stringify(disk)).not.toContain('apiKey');
   await panel.evaluate(async()=>{try{await window.judge.getAssetFrames('../../private');throw Error('未拒绝')}catch(e){if(String(e).includes('未拒绝'))throw e}});
   await pet.emulateMedia({reducedMotion:'reduce'});await panel.evaluate(async()=>{const s=await window.judge.getState();await window.judge.previewContact(s.contacts[1])});await expect(pet.locator('[data-character="honest"]')).toBeVisible();expect(await pet.locator('.pet-scene').evaluate(e=>getComputedStyle(e).animationName)).toBe('none');
-  await panel.getByRole('button',{name:'测试面板',exact:true}).click();await panel.screenshot({path:'test-results/mvp-panel.png'});await panel.getByRole('button',{name:'消息历史',exact:true}).click();await panel.getByRole('button',{name:'恢复到桌面',exact:true}).first().click();await expect(pet.locator('.message-card')).toBeVisible();if(errors.length)throw Error(errors.join('\n'));
-  console.log('Electron 桌面验收通过：七类精细人物/Lottie 动画与透明通道、海洋控制台、七种进场、回复消息/肘击/忽略、个人优先级/时长/皮肤、真实文件导入与显示（图片/GIF/序列帧）、隐藏恢复/置顶、无密钥规则降级、重启持久化与减少动态效果。');
+  await panel.getByRole('button',{name:'测试面板',exact:true}).click();await panel.screenshot({path:'test-results/mvp-panel.png'});await panel.getByRole('button',{name:'消息历史',exact:true}).click();await panel.getByRole('button',{name:'恢复到桌面',exact:true}).first().click();await expect(pet.locator('.message-card')).toBeVisible();const contactsBefore=await panel.evaluate(async()=> (await window.judge.getState()).contacts.length);panel.once('dialog',d=>d.accept());await panel.getByRole('button',{name:'清空历史',exact:true}).click();await expect(panel.getByRole('status')).toHaveText('历史已清空。');await expect(pet.locator('.message-card')).toHaveCount(0);await expect(pet.locator('.restore-chip')).toHaveCount(0);expect(await panel.evaluate(async()=> (await window.judge.getState()).history.length)).toBe(0);expect(await panel.evaluate(async()=> (await window.judge.getState()).contacts.length)).toBe(contactsBefore);if(errors.length)throw Error(errors.join('\n'));
+  console.log('Electron 桌面验收通过：七类精细人物/Lottie 动画与透明通道、海洋控制台、七种进场与一键演示/停止、回复消息/肘击/忽略、个人优先级/时长/皮肤、真实文件导入与显示（图片/GIF/序列帧）、隐藏恢复/置顶、无密钥规则降级/关闭 AI、清空历史与桌面内容、重启持久化与减少动态效果。');
  }catch(e){if(app)for(const page of app.windows())await page.screenshot({path:'test-results/failure-'+(page.url().includes('pet')?'pet':'panel')+'.png'}).catch(()=>{});throw e;}
  finally{if(app)await app.close().catch(()=>{});await rm(data,{recursive:true,force:true});await rm(source,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1});

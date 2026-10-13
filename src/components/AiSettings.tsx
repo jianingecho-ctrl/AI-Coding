@@ -4,7 +4,7 @@ export function AiSettings({state,busy,execute}:{state:State;busy:boolean;execut
  const [key,setKey]=useState(''),[hasKey,setHasKey]=useState(false),[provider,setProvider]=useState(state.ai.provider);
  useEffect(()=>{window.judge.hasAiKey().then(setHasKey)},[]);
  return <form className="ai-settings" onSubmit={e=>{e.preventDefault();const data=new FormData(e.currentTarget);execute(()=>window.judge.saveSettings({contacts:state.contacts,pet:state.pet,ai:{enabled:data.get('enabled')==='on',provider,model:String(data.get('model')).trim(),baseUrl:String(data.get('baseUrl')).trim()}}),'摘要模式已保存。')}}>
- <h3>消息分析服务</h3><p className="description">默认使用本地规则解析，明确标注「未调用 AI」。启用 Ollama 时发送到本机；启用在线服务时，测试消息会发送到你配置的服务地址。</p>
+ <h3>消息分析服务</h3><p className="description">默认使用本地规则解析，明确标注「未调用 AI」。启用 Ollama 时只发送当前消息正文到本机；启用在线服务时，会将当前消息正文、模型参数和摘要提示发送到你配置的服务地址。联系人名单、历史、回复和人物素材不会上传。正文中包含的个人信息也会随正文发送。</p>
  <label className="checkbox-label"><input name="enabled" type="checkbox" defaultChecked={state.ai.enabled}/>启用真实 AI（未配置或失败会提示并使用规则解析）</label>
  <label>AI 服务<select value={provider} onChange={e=>setProvider(e.target.value as State['ai']['provider'])}><option value="ollama">本机 Ollama</option><option value="openai-compatible">OpenAI 兼容服务</option></select></label>
  <label>模型名称<input name="model" defaultValue={state.ai.model} required maxLength={100}/><small>Ollama 默认 qwen2.5:3b；在线服务填写供应商提供的模型名称。</small></label>

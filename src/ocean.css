@@ -54,3 +54,10 @@
 .dashboard aside nav button { background:transparent; border:0; color:#e0f3ff; box-shadow:none; }
 .dashboard aside nav button:hover { background:#a6eaff17; }
 .dashboard aside nav button.active,.dashboard aside nav button.active:hover { background:linear-gradient(100deg,#47badf,#2192c2); color:#fff; box-shadow:0 5px 14px #002d5150; }
+.demo-controls { display:flex;gap:18px;align-items:center;justify-content:space-between;margin:20px 0;padding:18px 22px;border:1px solid #c9edfc;border-radius:15px;background:#effbffde; }
+.demo-controls h3 { font-size:15px;margin:0 0 7px; }
+.demo-controls p { font-size:11px;line-height:1.8;margin:0;color:#315f7d; }
+.demo-controls button { white-space:nowrap;font-size:12px;margin:4px; }
+.privacy-note { font-size:11px;line-height:1.8;padding:14px 18px;border:1px solid #a7d5ec;border-radius:12px;background:#eef9ffb8;margin-bottom:18px; }
+.privacy-note p { margin:6px 0 0; }
+.privacy-note button { margin-top:8px;font-size:11px; }

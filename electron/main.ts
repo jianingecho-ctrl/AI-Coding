@@ -4,9 +4,8 @@ import {readFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {contactSchema,stateSchema,type State,type Message} from '../src/lib/model';
-import {messageEffects, resolveEffects} from '../src/lib/effects';
-import {summarize} from '../src/lib/summary';
-import {extractSummary} from './ai';
+import {messageEffects} from '../src/lib/effects';
+import {MessagePipeline} from './messages';
 import {Store} from './store';
 import {importFiles,readFrames} from './assets';
 import {Credentials} from './credentials';
@@ -14,6 +13,7 @@ if(process.env.JUDGE_DATA_DIR)app.setPath('userData',path.resolve(process.env.JU
 let pet:BrowserWindow|null=null;
 let panel:BrowserWindow|null=null;
 let store:Store;
+let messages:MessagePipeline;
 let credentials:Credentials;
 let assetRoot:string;
 const devURL=process.env.VITE_DEV_SERVER_URL;
@@ -43,6 +43,7 @@ app.whenReady().then(async()=>{
  store=new Store(path.join(app.getPath('userData'),'judge-state.json'));await store.load();
  assetRoot=path.join(app.getPath('userData'),'assets');
  credentials=new Credentials(path.join(app.getPath('userData'),'ai-key.enc'));
+ messages=new MessagePipeline(store,()=>credentials.get());
  const area=screen.getPrimaryDisplay().workArea;
  pet=new BrowserWindow({width:460,height:660,x:Math.max(area.x,area.x+area.width-480),y:Math.max(area.y,area.y+area.height-680),transparent:true,frame:false,alwaysOnTop:true,resizable:false,hasShadow:false,skipTaskbar:true,webPreferences:options()});
  pet.setAlwaysOnTop(store.get().pet.alwaysOnTop,'floating');pet.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});load(pet,'pet');
@@ -55,12 +56,9 @@ app.whenReady().then(async()=>{
   const state=await store.update(s=>({...s,contacts:settings.contacts,pet:settings.pet,ai:settings.ai??s.ai}));pet?.setAlwaysOnTop(state.pet.alwaysOnTop,'floating');broadcast(state);return state;
  });
  ipcMain.handle('message:send',async(_,input)=>{
-  const data=z.object({contactId:z.string(),text:z.string().trim().min(1).max(5000)}).parse(input);
-  const contact=store.get().contacts.find(c=>c.id===data.contactId);if(!contact)throw new Error('联系人不存在');
-  const stateAtReception=store.get();
-  const message:Message={id:randomUUID(),contact,text:data.text,createdAt:new Date().toISOString(),summary:await extractSummary(data.text,stateAtReception.ai,fetch,stateAtReception.ai.enabled&&stateAtReception.ai.provider==='openai-compatible'?await credentials.get():''),effect:resolveEffects(contact,stateAtReception.pet)};
-  const state=await store.update(s=>({...s,history:[message,...s.history].slice(0,200)}));broadcast(state);
-  deliver(message);return message;
+  const data=z.object({contactId:z.string(),text:z.string()}).parse(input);
+  const message=await messages.receive({source:'mock',senderId:data.contactId,text:data.text});
+  broadcast(store.get());deliver(message);return message;
  });
  ipcMain.handle('message:reply',async(_,input)=>{
   const data=z.object({messageId:z.string(),text:z.string().trim().min(1).max(2000)}).parse(input);
@@ -74,13 +72,10 @@ app.whenReady().then(async()=>{
   broadcast(state);return updated;
  });
  ipcMain.handle('message:restore',(_,id)=>{const message=store.get().history.find(m=>m.id===id);if(!message)throw new Error('历史消息不存在');deliver(message);return message;});
- ipcMain.handle('effect:preview',(_,input)=>{
-  const contact=contactSchema.parse(input);
-  const text='这是一条桌面效果预览消息，不写入历史。请明天下午3点前提交摸鱼报告，收到请回复。';
-  const message:Message={id:randomUUID(),contact,text,createdAt:new Date().toISOString(),summary:summarize(text),effect:resolveEffects(contact,store.get().pet),preview:true};
-  deliver(message);return message;
- });
- ipcMain.handle('history:clear',async()=>{const state=await store.update(s=>({...s,history:[]}));broadcast(state);return state;});
+ ipcMain.handle('effect:preview',(_,input)=>{const message=messages.preview(input);deliver(message);return message;});
+ const clearDisplayed=()=>{for(const w of BrowserWindow.getAllWindows())w.webContents.send('message:clear');};
+ ipcMain.handle('message:clear',clearDisplayed);
+ ipcMain.handle('history:clear',async()=>{const state=await messages.clearHistory();broadcast(state);clearDisplayed();return state;});
  ipcMain.handle('asset:import',async()=>{
   if(store.get().assets.length>=100)throw new Error('素材库最多保存 100 组素材');
   const result=await dialog.showOpenDialog(panel??pet!,{title:'上传人物图片 / GIF / 序列帧',properties:['openFile','multiSelections'],filters:[{name:'人物素材',extensions:['png','jpg','jpeg','webp','gif']}]});
