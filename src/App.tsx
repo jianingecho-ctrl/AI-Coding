@@ -1,6 +1,6 @@
 import {useEffect, useState, useRef, type CSSProperties} from 'react';
 import {
-  categories, defaultState, type State, type Message, type Contact, type Category, type CharacterSkin, type CharacterId,
+  categories, defaultState, type State, type Message, type Contact, type Category, type CharacterSkin, type CharacterId,type InteractionKind,
 } from './lib/model';
 import {
   entryLabels, cardSkins, characterSkins, characterRoster, characterLabels, hasPersonalEffects, isKneeling, messageEffects, resolveEffects,
@@ -14,6 +14,8 @@ import {AiSettings} from './components/AiSettings';
 import {OceanBackdrop} from './components/OceanBackdrop';
 import './ocean.css';
 import {DemoPlayer,demoContacts} from './lib/demo';
+import {PetPreferences} from './components/PetPreferences';
+import {InteractionStats} from './components/InteractionStats';
 
 export function App() {
   const [state, setState] = useState<State>(structuredClone(defaultState));
@@ -44,17 +46,19 @@ function Pet({state, error}: {state: State; error: string}) {
   const [message, setMessage] = useState<Message | null>(null);
   const [action, setAction] = useState('idle');
   const [dismissed,setDismissed]=useState<Message|null>(null);
-  const [punch,setPunch]=useState(0);
+  const [reaction,setReaction]=useState<{kind:InteractionKind;key:number}|null>(null);
   const [entry, setEntry] = useState(0);
   useEffect(() => window.judge?.onMessage(m => {
-    setMessage(m);setDismissed(null);
+    setMessage(m);setDismissed(null);setReaction(null);
     setEntry(v => v + 1);
     setAction(messageEffects(m).action);
   }), []);
-  useEffect(()=>window.judge?.onMessageCleared(()=>{setMessage(null);setDismissed(null);setAction('idle');setPunch(0);setEntry(v=>v+1)}),[]);
+  useEffect(()=>window.judge?.onMessageCleared(()=>{setMessage(null);setDismissed(null);setAction('idle');setReaction(null);setEntry(v=>v+1)}),[]);
+  useEffect(()=>{if(!window.judge)return;void window.judge.setPetExpanded(Boolean(message)).catch(console.error)},[Boolean(message)]);
+  useEffect(()=>{if(!reaction)return;const timer=setTimeout(()=>setReaction(null),1200);return()=>clearTimeout(timer)},[reaction]);
   const effect = message ? messageEffects(message) : null;
   const character = effect?.character ?? state.pet.character;
-  return <main className="pet-stage">
+  return <main className="pet-stage" style={{'--pet-scale':state.pet.scale} as CSSProperties}>
     <div className="pet-toolbar">
       <span className="drag-handle" title="按住拖动窗口">⠿ 拖动小判官</span>
       <button onClick={() => window.judge.openPanel()}>控制台</button>
@@ -64,15 +68,15 @@ function Pet({state, error}: {state: State; error: string}) {
     {error && <p className="error">{error}</p>}
     <div key={entry} style={{'--entry-duration':(effect?.duration??1.2)+'s'} as CSSProperties} className={'pet-scene ' + (effect ? 'entry-' + effect.entry : '') + (effect?.entry==='slide' && isKneeling(effect.action) ? ' slide-kneel' : '')}>
       {effect && <SceneEffects gag={effect.gag}/>}
-      {message && <MessageCard key={message.id} message={state.history.find(m=>m.id===message.id)??message}
+      {message && <MessageCard key={message.id} state={state} message={state.history.find(m=>m.id===message.id)??message}
         onClose={() => {setDismissed(message);setMessage(null);setAction('idle')}}
         onIgnore={() => {setDismissed(message);setMessage(null);setAction('idle')}}
-        onElbow={()=>setPunch(v=>v+1)}/>}
-      {!message && <div className="idle-bubble">
-        {action === 'fish' ? '带薪摸鱼，也是努力的一种。' : action === 'yawn' ? '不是我困了，是班太长了。' : '工作各显神通，摸鱼心意相通。'}
+        onInteraction={kind=>setReaction(r=>({kind,key:(r?.key??0)+1}))}/>}
+      {!message&&!dismissed && <div className="idle-bubble">
+        {action === 'fish' ? '带薪摸鱼，也是努力。' : action === 'yawn' ? '不是我困，是班太长。' : '打工待命，摸鱼在线。'}
       </div>}
       {dismissed&&!message&&<button className="restore-chip" onClick={()=>{setMessage(dismissed);setAction('stand');setDismissed(null)}}>重新查看 · {dismissed.contact.name}</button>}
-      <div key={punch} className={"pet-drag "+(punch?'elbow-nudge':'')} title="按住人物拖动窗口">
+      <div key={reaction?.key??0} className={"pet-drag "+(reaction?'reaction-'+reaction.kind:'')} title="按住人物拖动窗口">
         <Character character={character} action={action} name={state.pet.name} color={state.pet.color} skin={effect?.characterSkin ?? state.pet.skin} duration={effect?.duration} assetId={effect?.assetId ?? (!message?state.pet.assetId:null)}/>
         <span className="pet-name">{state.pet.name} · {characterLabels[character]}</span>
       </div>
@@ -131,10 +135,10 @@ function Panel({state, ready, error, setError}: {
     <aside>
       <div className="brand-icon">判</div>
       <h1>职场小判官<span>每人一张脸，消息各有戏</span></h1>
-      <nav>{['测试面板', '联系人', '消息历史', '人物设置'].map(t =>
+      <nav>{['测试面板', '联系人', '消息历史','互动统计', '人物设置'].map(t =>
         <button key={t} className={tab === t ? 'active' : ''} onClick={() => {if(demoRunning)stopDemo();setTab(t);setNotice('');}}>{t}</button>
       )}</nav>
-      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>海洋桌宠版 / 0.5.2</p></div>
+      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>海洋桌宠版 / 0.6.0</p></div>
     </aside>
 
     <section className="workspace">
@@ -177,7 +181,7 @@ function Panel({state, ready, error, setError}: {
             <button onClick={() => { setEditingId(chosen.id); setTab('联系人'); }}>设置这个人的效果</button></div>
           <EffectPreview contact={chosen} pet={state.pet}/>
         </div>}
-        {last && <div className="preview"><h3>最近一次判读</h3><MessageCard key={last.id} message={state.history.find(m=>m.id===last.id)??last}/></div>}
+        {last && <div className="preview"><h3>最近一次判读</h3><MessageCard key={last.id} state={state} message={state.history.find(m=>m.id===last.id)??last}/></div>}
         <p className="footnote">默认规则解析，未调用 AI。可选本机 Ollama 或在线 AI；未配置密钥或服务不可用时明确提示降级。相对日期保留原文，请核对消息。</p>
       </>}
 
@@ -223,11 +227,14 @@ function Panel({state, ready, error, setError}: {
               void execute(() => window.judge.clearHistory(), '历史已清空。');
           }}>清空历史</button></div>
         {state.history.length ? state.history.map(m => <div className="history-item" key={m.id}>
-          <time>{new Date(m.createdAt).toLocaleString('zh-CN')}</time><button onClick={()=>void execute(()=>window.judge.restoreMessage(m.id),'历史消息已恢复到桌面。')}>恢复到桌面</button><MessageCard message={m}/>
+          <time>{new Date(m.createdAt).toLocaleString('zh-CN')}</time><button onClick={()=>void execute(()=>window.judge.restoreMessage(m.id),'历史消息已恢复到桌面。')}>恢复到桌面</button><MessageCard state={state} message={m}/>
         </div>) : <div className="empty">还没有消息。去测试面板让桌宠接个活吧。</div>}
       </>}
 
+      {tab==='互动统计'&&<InteractionStats state={state} busy={busy} onClear={()=>{if(confirm('确定清空全部本地互动统计（包含之前日期）？消息历史会保留。'))void execute(()=>window.judge.clearInteractions(),'互动统计已清空。')}}/>}
+
       {tab === '人物设置' && <>
+        <PetPreferences pet={state.pet} busy={!ready||busy} onSave={preferences=>void execute(()=>save(state.contacts,{...state.pet,...preferences}),'尺寸与音效已保存。')}/>
         <div className="settings-title"><div><h3>选个待机角色，给每个人安排一张脸。</h3><p className="description">七类人物使用 Word 中的本地图片与 Lottie 轮廓动画，保持原图姿态。这里选择没有消息时的默认角色；来消息时使用联系人的角色，关闭卡片后恢复待机角色。</p></div></div>
         <div className="character-gallery" role="group" aria-label="七类消息人物">{characterRoster.map(c =>
           <button type="button" className={'character-choice '+(characterDraft===c.id?'selected':'')} key={c.id}

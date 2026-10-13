@@ -37,18 +37,26 @@ export type Message=z.infer<typeof messageSchema>;
 export const aiSchema=z.object({enabled:z.boolean(),provider:z.enum(['ollama','openai-compatible']).default('ollama'),model:z.string().trim().min(1).max(100).regex(/^[a-zA-Z0-9_.:/-]+$/),baseUrl:z.string().max(300).default('https://api.openai.com/v1')});
 export const assetSchema=z.object({id:z.string().uuid(),name:z.string().max(120),kind:z.enum(['image','gif','sequence']),files:z.array(z.string().regex(/^\d{3}\.(png|jpg|jpeg|webp|gif)$/)).min(1).max(60),createdAt:z.string()});
 export type Asset=z.infer<typeof assetSchema>;
+export const interactionKinds=['elbow','slap','burn','heart'] as const;
+export type InteractionKind=typeof interactionKinds[number];
+export const interactionCountsSchema=z.object({elbow:z.number().int().min(0).max(1000000),slap:z.number().int().min(0).max(1000000),burn:z.number().int().min(0).max(1000000),heart:z.number().int().min(0).max(1000000)});
+export type InteractionCounts=z.infer<typeof interactionCountsSchema>;
+export const dailyInteractionSchema=z.object({day:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),contactId:z.string().min(1).max(100),contactName:z.string().min(1).max(40),counts:interactionCountsSchema});
+export type DailyInteraction=z.infer<typeof dailyInteractionSchema>;
 export const stateSchema=z.object({
  contacts:z.array(contactSchema).max(100),history:z.array(messageSchema).max(200),
- pet:z.object({name:z.string().trim().min(1).max(20),color:z.enum(['薄荷绿','蜜桃粉','奶油黄']),skin:z.enum(characterSkinIds).default('desert'),character:z.enum(characterIds).default('npc'),assetId:z.string().uuid().nullable().default(null),alwaysOnTop:z.boolean().default(true)}),
+ pet:z.object({name:z.string().trim().min(1).max(20),color:z.enum(['薄荷绿','蜜桃粉','奶油黄']),skin:z.enum(characterSkinIds).default('desert'),character:z.enum(characterIds).default('npc'),assetId:z.string().uuid().nullable().default(null),alwaysOnTop:z.boolean().default(true),scale:z.number().min(.45).max(1).default(.6),soundEnabled:z.boolean().default(true),soundVolume:z.number().min(0).max(1).default(.45)}),
  ai:aiSchema.default({enabled:false,provider:'ollama',model:'qwen2.5:3b',baseUrl:'https://api.openai.com/v1'}),assets:z.array(assetSchema).max(100).default([]),
+ interactions:z.array(dailyInteractionSchema).max(9000).default([]),
 });
 export type State=z.infer<typeof stateSchema>;
-export const defaultState:State={contacts:categories.map((category,i)=>({id:['boss','honest','bored','laidback','silly','bigSilly','npc'][i],name:['王经理','老实小陈','厌世小周','躺平搭子','小迷糊','甩锅达人','路过同事'][i],category})),history:[],pet:{name:'小判官',color:'薄荷绿',skin:'desert',character:'npc',assetId:null,alwaysOnTop:true},ai:{enabled:false,provider:'ollama',model:'qwen2.5:3b',baseUrl:'https://api.openai.com/v1'},assets:[]};
+export const defaultState:State={contacts:categories.map((category,i)=>({id:['boss','honest','bored','laidback','silly','bigSilly','npc'][i],name:['王经理','老实小陈','厌世小周','躺平搭子','小迷糊','甩锅达人','路过同事'][i],category})),history:[],pet:{name:'小判官',color:'薄荷绿',skin:'desert',character:'npc',assetId:null,alwaysOnTop:true,scale:.6,soundEnabled:true,soundVolume:.45},ai:{enabled:false,provider:'ollama',model:'qwen2.5:3b',baseUrl:'https://api.openai.com/v1'},assets:[],interactions:[]};
 export interface Bridge{
  getState():Promise<State>;saveSettings(settings:Pick<State,'contacts'|'pet'>&{ai?:State['ai']}):Promise<State>;
  sendMessage(input:{contactId:string;text:string}):Promise<Message>;previewContact(contact:Contact):Promise<Message>;
  clearDisplayedMessage():Promise<void>;importAsset():Promise<Asset|null>;getAssetFrames(id:string):Promise<string[]>;
  saveAiKey(key:string):Promise<void>;hasAiKey():Promise<boolean>;
+ recordInteraction(input:{messageId:string;kind:InteractionKind}):Promise<DailyInteraction>;clearInteractions():Promise<State>;setPetExpanded(expanded:boolean):Promise<void>;
  replyMessage(input:{messageId:string;text:string}):Promise<Message>;restoreMessage(id:string):Promise<Message>;hidePet():Promise<void>;showPet():Promise<void>;clearHistory():Promise<State>;openPanel():Promise<void>;quit():Promise<void>;
  onMessageCleared(callback:()=>void):()=>void;onState(callback:(state:State)=>void):()=>void;onMessage(callback:(message:Message)=>void):()=>void;
 }

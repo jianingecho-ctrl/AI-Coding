@@ -6,6 +6,7 @@ const bridge:Bridge={
  previewContact:contact=>ipcRenderer.invoke('effect:preview',contact),
  clearDisplayedMessage:()=>ipcRenderer.invoke('message:clear'),importAsset:()=>ipcRenderer.invoke('asset:import'),getAssetFrames:id=>ipcRenderer.invoke('asset:frames',id),
  saveAiKey:key=>ipcRenderer.invoke('ai:key-save',key),hasAiKey:()=>ipcRenderer.invoke('ai:key-status'),
+ recordInteraction:input=>ipcRenderer.invoke('interaction:record',input),clearInteractions:()=>ipcRenderer.invoke('interaction:clear'),setPetExpanded:expanded=>ipcRenderer.invoke('pet:expanded',expanded),
  replyMessage:input=>ipcRenderer.invoke('message:reply',input),restoreMessage:id=>ipcRenderer.invoke('message:restore',id),hidePet:()=>ipcRenderer.invoke('pet:hide'),showPet:()=>ipcRenderer.invoke('pet:show'),
  openPanel:()=>ipcRenderer.invoke('panel:open'),quit:()=>ipcRenderer.invoke('app:quit'),
  onMessageCleared:callback=>{const listener=()=>callback();ipcRenderer.on('message:clear',listener);return()=>ipcRenderer.removeListener('message:clear',listener);},

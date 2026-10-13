@@ -14,7 +14,7 @@ describe('本地持久化',()=>{
   const file=path.join(await directory(),'state.json');
   const legacy={contacts:defaultState.contacts.slice(0,4),pet:{name:'老朋友',color:'蜜桃粉'},history:[{id:'old',contact:defaultState.contacts[3],text:'旧消息',createdAt:'2026-10-12T00:00:00.000Z',summary:{core:'旧消息',todos:[],deadline:'未明确',reply:'无需回复',source:'本地规则摘要'}}]};
   await writeFile(file,JSON.stringify(legacy));const s=new Store(file);const loaded=await s.load();
-  expect(loaded.contacts).toEqual(legacy.contacts);expect(loaded.pet).toEqual({...legacy.pet,skin:'desert',character:'npc',assetId:null,alwaysOnTop:true});expect(loaded.history[0].text).toBe('旧消息');
+  expect(loaded.contacts).toEqual(legacy.contacts);expect(loaded.pet).toEqual({...legacy.pet,skin:'desert',character:'npc',assetId:null,alwaysOnTop:true,scale:.6,soundEnabled:true,soundVolume:.45});expect(loaded.interactions).toEqual([]);expect(loaded.history[0].text).toBe('旧消息');
   expect(JSON.parse(await readFile(file,'utf8'))).toEqual(legacy);
   await s.update(v=>({...v,pet:{...v.pet,skin:'judge'}}));expect((await new Store(file).load()).history).toEqual(loaded.history);
  });

@@ -141,17 +141,18 @@ textarea { resize: vertical; line-height: 1.8; min-height: 110px; }
 /* 透明桌面舞台。装饰不拦截鼠标，按钮和卡片不属于拖动区。 */
 .pet-window { background: transparent !important; overflow: hidden; }
 .pet-window #root { background: transparent; }
-.pet-stage { height: 660px; width: 460px; position: relative; padding: 12px 24px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-.pet-toolbar { position: absolute; top: 8px; left: 30px; right: 30px; display: flex; gap: 6px; align-items: center; justify-content: center; font-size: 10px; }
-.pet-toolbar button { font-size: 10px; padding: 5px 8px; background: #fffef5ed; }
+.pet-stage { height: 100vh; width: 100vw; position: relative; padding: 38px 16px 12px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.pet-toolbar { position: absolute; top: 6px; left: 8px; right: 8px; display: flex; gap: 4px; align-items: center; justify-content: center; font-size: 9px; }
+.pet-toolbar button { font-size: 9px; padding: 5px 6px; background: #fffef5ed; }
 .drag-handle { -webkit-app-region: drag; background: #fffef5dd; border-radius: 8px; padding: 6px 10px; color: #58775c; }
-.pet-scene { display: flex; flex-direction: column; align-items: center; width: 100%; max-height: 600px; position: relative; }
-.pet-scene .message-card { width: 100%; max-height: 306px; overflow: auto; position: relative; z-index: 2; flex-shrink: 1; }
-.pet-scene .card-actions { position: sticky; bottom: -16px; padding: 9px 0; background: var(--card-bg); border-top: 1px solid var(--card-ink); }
-.pet-drag { -webkit-app-region: drag; flex-shrink: 0; text-align: center; height: 278px; }
-.pet-drag .character { width: 210px; height: 259px; margin: 0 auto; }
+.pet-scene { display: flex; flex-direction: column; align-items: center; width: 100%; max-height: 100%; position: relative; }
+.pet-scene .message-card { display:flex;flex-direction:column;width:100%;height:360px;max-height:360px;position:relative;z-index:2;flex-shrink:1;min-height:180px;margin-bottom:8px; }
+.pet-scene .card-content { overflow:auto;flex:1;min-height:0;padding-right:5px; }
+.pet-scene .card-footer { flex-shrink:0;border-top:1px solid var(--card-ink); }
+.pet-drag { -webkit-app-region: drag; flex-shrink: 0; text-align: center; height: calc(259px * var(--pet-scale, .6) + 24px); }
+.pet-drag .character { width: calc(210px * var(--pet-scale, .6)); height: calc(259px * var(--pet-scale, .6)); margin: 0 auto; }
 .pet-name { font-size: 10px; display: inline-block; padding: 4px 12px; background: #fffef5e6; border-radius: 12px; color: #34553e; }
-.idle-bubble { font-size: 12px; background: #fffef5; border: 2px solid #456349; border-radius: 16px; padding: 13px 18px; box-shadow: 3px 3px 0 #34553e17; margin-bottom: 10px; animation: bubble 5s ease-in-out infinite; }
+.idle-bubble { font-size: 11px; background: #fffef5; border: 2px solid #456349; border-radius: 13px; padding: 9px 12px; box-shadow: 3px 3px 0 #34553e17; margin-bottom: 8px; animation: bubble 5s ease-in-out infinite; }
 
 /* 圆润连帽衫骆驼。四种服饰配色共用渐变和明确的站/跪骨架。 */
 .character {
@@ -361,7 +362,6 @@ textarea { resize: vertical; line-height: 1.8; min-height: 110px; }
 .reference-character.frame-skin-milktea svg { filter:sepia(.55) saturate(.8); }
 .reference-character.frame-skin-neon svg { filter:hue-rotate(65deg) saturate(1.5); }
 .reference-character.frame-skin-judge svg { filter:saturate(.4) contrast(1.1) hue-rotate(170deg); }
-.elbow-effect { position:absolute;z-index:5;right:12px;top:38%;padding:13px 18px;background:#fff0b5;border:2px solid #b67b3f;border-radius:13px;font-size:16px;pointer-events:none;animation:elbow-hit .75s ease-out both; }
 .message-card { position:relative; }
 .elbow-nudge .character { animation:elbow-nudge .6s ease-out; }
 .ignored-card { display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px;border-radius:12px;background:#edf1e6;font-size:12px; }
