@@ -19,6 +19,8 @@ import {InteractionStats} from './components/InteractionStats';
 import {PalaceBackdrop} from './components/PalaceBackdrop';
 import {palaceRoster} from './lib/palace';
 import {categoryLabel,editionCardSkins,editionSkins} from './lib/editions';
+import {NotificationPanel} from './components/NotificationPanel';
+import './notifications.css';
 
 export function App() {
   const [state, setState] = useState<State>(structuredClone(defaultState));
@@ -125,7 +127,7 @@ function Panel({appInfo,state, ready, error, setError}: {
   const editing = state.contacts.find(c => c.id === editingId);
   const palace=state.pet.theme==='palace',roster=palace?palaceRoster:characterRoster;
   const skins=editionSkins(appInfo.edition),cards=editionCardSkins(appInfo.edition);
-  const tabNames:Record<string,string>=palace?{'测试面板':'传话演示','联系人':'宫中名册','消息历史':'往来书信','互动统计':'互动战绩','人物设置':'宫廷人物'}:{};
+  const tabNames:Record<string,string>=palace?{'测试面板':'传话演示','飞书通知':'飞鸽传书','联系人':'宫中名册','消息历史':'往来书信','互动统计':'互动战绩','人物设置':'宫廷人物'}:{};
   function preview(contact: Contact) {
     void execute(() => window.judge.previewContact(contact), '桌面预览已播放，未写入消息历史。');
   }
@@ -143,15 +145,15 @@ function Panel({appInfo,state, ready, error, setError}: {
     <aside>
       <div className="brand-icon">{palace?'宫':'海'}</div>
       <h1>职场小判官<span>{palace?'甄嬛传独立版 · 本宫替你判':'海洋独立版 · 每人各有戏'}</span></h1>
-      <nav>{['测试面板', '联系人', '消息历史','互动统计', '人物设置'].map(t =>
+      <nav>{['测试面板','飞书通知', '联系人', '消息历史','互动统计', '人物设置'].map(t =>
         <button key={t} data-tab={t} className={tab === t ? 'active' : ''} onClick={() => {if(demoRunning)stopDemo();setTab(t);setNotice('');}}>{tabNames[t]??t}</button>
       )}</nav>
-      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>{appInfo.label} / {appInfo.version}</p></div>
+      <div className="aside-bottom"><span className="status-dot"/>消息助手 · 本地运行<p>{appInfo.label} / {appInfo.version}</p></div>
     </aside>
 
     <section className="workspace">
       <header><div><span className="eyebrow">{palace?'今日入宫上班，差事也要有排面':'职场有点苦，角色有点逗'}</span><h2>{tabNames[tab]??tab}</h2></div>
-        <button onClick={()=>window.judge.showPet()}>显示桌宠</button><span className="pill">{state.ai.enabled ? (state.ai.provider==='ollama'?'本地 AI 模式':'在线 AI 模式') : '离线规则模式'}</span></header>
+        <button onClick={()=>window.judge.showPet()}>显示桌宠</button><span className="pill">{tab==='飞书通知'?'通知：本机规则解析':state.ai.enabled ? (state.ai.provider==='ollama'?'本地 AI 模式':'在线 AI 模式') : '离线规则模式'}</span></header>
       {error && <p role="alert" className="error">{error}</p>}
       {notice && <p role="status" className="notice">{notice}</p>}
       <div className="edition-banner"><strong>{appInfo.name}</strong><span>人物、联系人、消息和互动次数仅保存在本版</span></div>
@@ -170,7 +172,7 @@ function Panel({appInfo,state, ready, error, setError}: {
         <section className="demo-controls"><div><h3>{palace?'一键演示七位宫廷人物':'一键演示七类人物'}</h3><p>按默认进场依次播放，不修改联系人，不记录历史，不调用 AI。</p>
           {demoRunning&&<p role="status">正在演示 {demoStep} / 7 · {palace?palaceRoster[Math.max(0,demoStep-1)].name:demoContacts[Math.max(0,demoStep-1)].category}</p>}</div>
           <div><button disabled={!ready||busy} onClick={()=>void playDemo()}>一键播放七类人物</button>{demoRunning&&<button onClick={stopDemo}>停止演示</button>}</div></section>
-        <div className="privacy-note"><strong>模拟消息 · V1.0 范围</strong><p>本版只处理你在此输入的模拟数据，未连接真实飞书账号或读取 macOS 通知。</p>
+        <div className="privacy-note"><strong>模拟消息测试</strong><p>此页只处理手动输入的模拟数据。识别桌面可见通知请进入「{palace?'飞鸽传书':'飞书通知'}」，该功能仅在主动开始后读取选区。</p>
           <p>{!state.ai.enabled?'AI 分析已关闭：仅本地规则解析，消息不外发。':state.ai.provider==='ollama'?'启用本机 Ollama：仅发送当前消息正文到本机 127.0.0.1:11434。':'启用在线 AI：发送当前模拟消息正文、模型参数和摘要提示到配置的服务；不上传联系人名单、消息历史、回复记录或人物素材。正文中写入的个人信息也会随正文发送。'}</p>
           {state.ai.enabled&&<button disabled={busy} onClick={()=>void execute(()=>window.judge.saveSettings({contacts:state.contacts,pet:state.pet,ai:{...state.ai,enabled:false}}),'AI 分析已关闭，后续消息仅使用本地规则。')}>关闭 AI 分析</button>}</div>
         <form onSubmit={e => {
@@ -194,6 +196,8 @@ function Panel({appInfo,state, ready, error, setError}: {
         {last && <div className="preview"><h3>最近一次判读</h3><MessageCard key={last.id} state={state} message={state.history.find(m=>m.id===last.id)??last}/></div>}
         <p className="footnote">默认规则解析，未调用 AI。可选本机 Ollama 或在线 AI；未配置密钥或服务不可用时明确提示降级。相对日期保留原文，请核对消息。</p>
       </>}
+
+      {tab==='飞书通知'&&<NotificationPanel state={state}/>}
 
       {tab === '联系人' && <>
         <p className="description">先选择发消息的人，再指定专属角色、进场方式、卡片皮肤、搞笑特效和台词，人物动作统一保持轻微晃动。历史保留收到消息时的效果。</p>

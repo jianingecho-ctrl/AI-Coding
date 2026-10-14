@@ -2,10 +2,10 @@ const {_electron}=require('playwright');
 const {expect}=require('@playwright/test');
 const {writeFile,readFile}=require('node:fs/promises');
 const path=require('node:path');
-async function launchEdition(base,edition,errors=[]){
+async function launchEdition(base,edition,errors=[],extraEnv={}){
  const config=path.join(base,'fixture-'+edition+'.json');await writeFile(config,JSON.stringify({id:edition}));
  const fixed=JSON.parse(await readFile('edition.json','utf8')).id;
- const env={...process.env,JUDGE_DATA_DIR:base,ELECTRON_RUN_AS_NODE:''};
+ const env={...process.env,...extraEnv,JUDGE_DATA_DIR:base,ELECTRON_RUN_AS_NODE:''};
  delete env.JUDGE_EDITION_FILE;
  if(fixed!==edition)env.JUDGE_EDITION_FILE=config;
  const app=await _electron.launch({args:[...(process.platform==='linux'?['--no-sandbox']:[]),'.'],env,timeout:30000});

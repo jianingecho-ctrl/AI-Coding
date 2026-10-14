@@ -1,4 +1,4 @@
-import {app,BrowserWindow,ipcMain,Menu,screen,dialog,nativeImage} from 'electron';
+import {app,BrowserWindow,ipcMain,Menu,screen,dialog,nativeImage,clipboard} from 'electron';
 import path from 'node:path';
 import {readFileSync,mkdirSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
@@ -13,6 +13,9 @@ import {InteractionService} from './interactions';
 import {petWindowSize,resizedPetBounds} from '../src/lib/pet-layout';
 import {editionDefinitions,editionDefaults,normalizeEditionState,assertEditionSettings,assertEditionContact} from '../src/lib/editions';
 import {parseEdition,editionDataRoot,migrateLegacyOcean} from './editions';
+import {NotificationService} from './notifications';
+import {createNotificationAdapter} from './notification-adapter';
+import {notificationSettingsSchema} from '../src/lib/notifications';
 const editionFile=!app.isPackaged&&process.env.JUDGE_EDITION_FILE?process.env.JUDGE_EDITION_FILE:path.join(__dirname,'../../edition.json');
 const edition=parseEdition(readFileSync(editionFile,'utf8')),identity=editionDefinitions[edition];
 const dataBase=process.env.JUDGE_DATA_DIR?path.resolve(process.env.JUDGE_DATA_DIR):app.getPath('appData');
@@ -31,6 +34,7 @@ let messages:MessagePipeline;
 let credentials:Credentials;
 let assetRoot:string;
 let interactions:InteractionService;
+let notifications:NotificationService;
 let petExpanded=false;
 let initialized=false;
 const devURL=process.env.VITE_DEV_SERVER_URL;
@@ -73,6 +77,9 @@ if(primary)app.whenReady().then(async()=>{
  credentials=new Credentials(path.join(app.getPath('userData'),'ai-key.enc'));
  messages=new MessagePipeline(store,()=>credentials.get());
  interactions=new InteractionService(store);
+ const notificationBinary=app.isPackaged?path.join(process.resourcesPath,'notification-tools','NotificationCapture-'+process.arch):path.join(__dirname,'../../native/bin','NotificationCapture-'+process.arch);
+ const notificationAdapter=await createNotificationAdapter(notificationBinary,!app.isPackaged?process.env.JUDGE_NOTIFICATION_FIXTURE:undefined);
+ notifications=new NotificationService(store,messages,notificationAdapter,status=>{for(const window of BrowserWindow.getAllWindows())window.webContents.send('notifications:changed',status)},message=>{broadcast(store.get());deliver(message)});
  const area=screen.getPrimaryDisplay().workArea;
  const size=petWindowSize(store.get().pet.scale,false);
  pet=new BrowserWindow({...size,x:Math.max(area.x,area.x+area.width-size.width-20),y:Math.max(area.y,area.y+area.height-size.height-20),transparent:true,frame:false,alwaysOnTop:true,resizable:false,hasShadow:false,skipTaskbar:true,webPreferences:options()});
@@ -81,6 +88,16 @@ if(primary)app.whenReady().then(async()=>{
  Menu.setApplicationMenu(Menu.buildFromTemplate([{label:identity.name,submenu:[{label:'打开控制台',click:openPanel},{label:'显示桌宠',click:()=>pet?.show()},{label:'隐藏桌宠',click:()=>{openPanel();pet?.hide()}},{label:'退出'+identity.name,click:()=>app.quit()}]},{label:'编辑',submenu:[{label:'撤销',role:'undo'},{label:'重做',role:'redo'},{type:'separator'},{label:'剪切',role:'cut'},{label:'复制',role:'copy'},{label:'粘贴',role:'paste'},{label:'全选',role:'selectAll'}]}]));
  ipcMain.handle('app:info',()=>appInfo);
  ipcMain.handle('state:get',()=>store.get());
+ const requirePanel=(event:Electron.IpcMainInvokeEvent)=>{if(event.sender.id!==panel?.webContents.id)throw new Error('请通过控制台操作通知识别。');};
+ ipcMain.handle('notifications:status',()=>notifications.get());
+ ipcMain.handle('notifications:save',async(event,input)=>{requirePanel(event);notifications.stop();const settings=notificationSettingsSchema.parse(input);const state=await store.update(s=>({...s,notifications:settings}));broadcast(state);return state;});
+ ipcMain.handle('notifications:once',(event)=>{requirePanel(event);return notifications.once();});
+ ipcMain.handle('notifications:start',(event)=>{requirePanel(event);return notifications.start();});
+ ipcMain.handle('notifications:stop',(event)=>{requirePanel(event);return notifications.stop();});
+ ipcMain.handle('notifications:confirm',(event,input)=>{requirePanel(event);return notifications.confirm(z.object({draftId:z.string().uuid(),contactId:z.string().min(1).max(100),text:z.string().trim().min(1).max(5000)}).parse(input));});
+ ipcMain.handle('notifications:dismiss',(event,id)=>{requirePanel(event);return notifications.dismiss(z.string().uuid().parse(id));});
+ ipcMain.handle('notifications:clear',(event)=>{requirePanel(event);return notifications.clear();});
+ ipcMain.handle('clipboard:copy',(_,text)=>{clipboard.writeText(z.string().trim().min(1).max(5000).parse(text));});
  ipcMain.handle('settings:save',async(_,input)=>{
   const settings=z.object({contacts:z.array(contactSchema).max(100),pet:stateSchema.shape.pet,ai:stateSchema.shape.ai.optional()}).parse(input);
   assertEditionSettings(settings,edition);
@@ -110,7 +127,7 @@ if(primary)app.whenReady().then(async()=>{
  ipcMain.handle('pet:expanded',(event,input)=>{if(event.sender.id!==pet?.webContents.id)throw new Error('仅桌宠窗口可调整显示尺寸');resizePet(z.boolean().parse(input));});
  const clearDisplayed=()=>{resizePet(false);for(const w of BrowserWindow.getAllWindows())w.webContents.send('message:clear');};
  ipcMain.handle('message:clear',clearDisplayed);
- ipcMain.handle('history:clear',async()=>{const state=await messages.clearHistory();broadcast(state);clearDisplayed();return state;});
+ ipcMain.handle('history:clear',async()=>{notifications.clear();const state=await messages.clearHistory();broadcast(state);clearDisplayed();return state;});
  ipcMain.handle('asset:import',async()=>{
   if(store.get().assets.length>=100)throw new Error('素材库最多保存 100 组素材');
   const result=await dialog.showOpenDialog(panel??pet!,{title:'上传人物图片 / GIF / 序列帧',properties:['openFile','multiSelections'],filters:[{name:'人物素材',extensions:['png','jpg','jpeg','webp','gif']}]});
@@ -128,3 +145,4 @@ if(primary)app.whenReady().then(async()=>{
 app.on('second-instance',()=>{if(initialized&&app.isReady()){openPanel();pet?.show();}});
 app.on('activate',()=>{if(primary&&initialized&&app.isReady())openPanel();});
 app.on('window-all-closed',()=>app.quit());
+app.on('before-quit',()=>notifications?.stop());
