@@ -4,7 +4,7 @@ import type {Store} from './store';
 import type {MessagePipeline} from './messages';
 import type {Message} from '../src/lib/model';
 
-export interface NotificationAdapter{available:boolean;fixture:boolean;capture(settings:NotificationSettings,signal:AbortSignal,delaySeconds?:number):Promise<CaptureFrame>}
+export interface NotificationAdapter{available:boolean;fixture:boolean;capture(settings:NotificationSettings,signal:AbortSignal,delaySeconds?:number,contactHints?:string[]):Promise<CaptureFrame>}
 export class NotificationService{
  private status:NotificationStatus;
  private generation=0;private busy=false;private timer:ReturnType<typeof setTimeout>|undefined;private abort:AbortController|undefined;
@@ -36,7 +36,9 @@ export class NotificationService{
  private async scan(generation:number,baseline=false,manual=false,delaySeconds=0){
   if(this.busy)return;this.busy=true;this.abort=new AbortController();
   try{
-   const frame=captureFrameSchema.parse(await this.adapter.capture(this.store.get().notifications,this.abort.signal,delaySeconds));
+   const snapshot=this.store.get();
+   const hints=[...new Set([...snapshot.contacts.map(contact=>contact.name),...snapshot.contacts.flatMap(contact=>contact.notificationNames??[])])].slice(0,128);
+   const frame=captureFrameSchema.parse(await this.adapter.capture(snapshot.notifications,this.abort.signal,delaySeconds,hints));
    if(generation!==this.generation)return;
    const result={frame,parsed:0,baseline,duplicates:0,newDrafts:0,delivered:0};this.status.lastResult=result;
    if(!['recognized','no-text'].includes(frame.status))throw new Error(frame.message||'通知识别未获得有效结果。');

@@ -9,22 +9,31 @@ import Darwin
 // 图片只在内存中处理，不写入文件，不联网，不自动发送消息。
 struct ProbeFailure: Error { let message: String }
 
+struct VisibleContext {
+    let kind: String
+    let windowID: UInt32?
+    let focus: CGRect?
+}
 @MainActor
-func contextForRegion(_ region: CGRect) -> String {
-    guard let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return "unknown" }
+func contextForRegion(_ region: CGRect) -> VisibleContext {
+    guard let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return VisibleContext(kind: "unknown", windowID: nil, focus: nil) }
     for window in windows {
         guard let bounds = window[kCGWindowBounds as String] as? [String: Any],
               let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary) else { continue }
         let intersection = region.intersection(frame)
-        guard !intersection.isNull, intersection.height >= 40, intersection.width * intersection.height >= region.width * region.height * 0.08 else { continue }
+        guard !intersection.isNull, intersection.height >= 40, intersection.width * intersection.height >= 5000 else { continue }
         let owner = window[kCGWindowOwnerName as String] as? String ?? ""
-        if ["NotificationCenter", "Notification Center", "通知中心"].contains(owner) { return "system-notification" }
+        let id = (window[kCGWindowNumber as String] as? NSNumber)?.uint32Value
+        // 系统的飞书应用标题可能在卡片窗体上方；保留至多 64 点顶部区域，仍不越出用户选区。
+        let top = max(region.minY, intersection.minY - 64)
+        let focus = frame.width >= 150 && frame.width <= 800 && frame.height <= 1000 && intersection.width >= 100 ? CGRect(x: intersection.minX, y: top, width: intersection.width, height: intersection.maxY - top) : nil
+        if ["NotificationCenter", "Notification Center", "通知中心"].contains(owner) { return VisibleContext(kind: "system-notification", windowID: id, focus: focus) }
         if let pid = (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value,
            let bundle = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier,
-           ["com.bytedance.lark", "com.electron.lark"].contains(bundle), frame.width <= 800, frame.height <= 360 { return "feishu-window" }
-        return "other-window"
+           ["com.bytedance.lark", "com.electron.lark"].contains(bundle), frame.width <= 800, frame.height <= 360 { return VisibleContext(kind: "feishu-window", windowID: id, focus: focus) }
+        return VisibleContext(kind: "other-window", windowID: id, focus: nil)
     }
-    return "unknown"
+    return VisibleContext(kind: "unknown", windowID: nil, focus: nil)
 }
 
 @available(macOS 15.2, *)
@@ -92,6 +101,13 @@ struct NotificationCapture {
                 rect = CGRect(x: values[0], y: values[1], width: values[2], height: values[3])
             }
             var delay = 10.0
+            var contactHints: [String] = []
+            if args.contains("--contact-hints") {
+                let data = FileHandle.standardInput.readDataToEndOfFile()
+                guard data.count <= 20000, let names = try? JSONDecoder().decode([String].self, from: data), names.count <= 128,
+                      names.allSatisfy({ !$0.isEmpty && $0.count <= 40 }) else { throw ProbeFailure(message: "联系人识别提示无效。") }
+                contactHints = names
+            }
             if let option = args.first(where: { $0.hasPrefix("--delay=") }) {
                 guard let seconds = Double(option.dropFirst(8)), seconds.isFinite, (0...30).contains(seconds)
                 else { throw ProbeFailure(message: "等待时间须为 0–30 秒。") }
@@ -107,12 +123,16 @@ struct NotificationCapture {
                 report(["status": "timeout", "message": "区域截图或文字识别超时，未获得结果。"], json: json); exit(4)
             }
             let before = await contextForRegion(rect)
-            let image = try await capture(rect)
-            let after = await contextForRegion(rect)
-            let context = before == after ? before : "unknown"
+            // 只能收窄到用户选区内最前面的通知窗口，不读取选区外或被覆盖的聊天。
+            let captureRect = before.focus ?? rect
+            let image = try await capture(captureRect)
+            let after = await contextForRegion(captureRect)
+            let context = before.kind == after.kind && before.windowID == after.windowID ? before.kind : "unknown"
             let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
-            request.usesLanguageCorrection = false
+            request.usesLanguageCorrection = true
+            request.customWords = contactHints
+            request.minimumTextHeight = 0.01
             let supported = try request.supportedRecognitionLanguages()
             guard let chinese = supported.first(where: { $0 == "zh-Hans" || $0.hasPrefix("zh-Hans-") })
             else { throw ProbeFailure(message: "本机识别服务未提供简体中文，本次不能验证中文通知。") }
@@ -126,10 +146,15 @@ struct NotificationCapture {
             }
             let lines: [[String: Any]] = observations.prefix(100).compactMap { observation in
                 guard let candidate = observation.topCandidates(1).first else { return nil }
-                return ["text": candidate.string, "confidence": Double(candidate.confidence)]
+                let box = observation.boundingBox
+                // 转换为截图左上角原点的点坐标，以区分通知正文与旁边的文件名。
+                return ["text": candidate.string, "confidence": Double(candidate.confidence),
+                        "box": ["x": Double(box.minX * captureRect.width), "y": Double((1 - box.maxY) * captureRect.height),
+                                "width": Double(box.width * captureRect.width), "height": Double(box.height * captureRect.height)]]
             }
-            let region = ["x": Double(rect.minX), "y": Double(rect.minY), "width": Double(rect.width), "height": Double(rect.height)]
+            let region = ["x": Double(captureRect.minX), "y": Double(captureRect.minY), "width": Double(captureRect.width), "height": Double(captureRect.height)]
             report(["status": lines.isEmpty ? "no-text" : "recognized", "region": region, "lines": lines, "context": context,
+                    "captureMode": before.focus == nil ? "selected-area" : "notification-window",
                     "message": lines.isEmpty ? "没有识别到文字；这不代表没有收到消息。" : "识别到 \(lines.count) 段可见文字：",
                     "tip": "请对照测试通知核对发送人和正文。结果仅为所选区域的 OCR，不证明内容一定来自飞书，不恢复隐藏或截断的内容，发送人匹配和送达由小判官控制台完成。"], json: json)
         } catch {
