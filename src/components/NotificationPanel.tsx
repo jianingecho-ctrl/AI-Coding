@@ -1,0 +1,51 @@
+import {useEffect,useState} from 'react';
+import type {State,Message} from '../lib/model';
+import {type NotificationStatus,type NotificationDraft,type NotificationSettings} from '../lib/notifications';
+import {categoryLabel} from '../lib/editions';
+import {MessageCard} from './MessageCard';
+
+export function NotificationPanel({state}:{state:State}){
+ const [status,setStatus]=useState<NotificationStatus|null>(null),[settings,setSettings]=useState<NotificationSettings>(structuredClone(state.notifications));
+ const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[last,setLast]=useState<Message|null>(null);
+ useEffect(()=>{let active=true;const off=window.judge.onNotifications(value=>{if(active)setStatus(value)});void window.judge.notificationStatus().then(value=>{if(active)setStatus(value)}).catch(e=>setError(String(e)));return()=>{active=false;off()}},[]);
+ useEffect(()=>setSettings(structuredClone(state.notifications)),[JSON.stringify(state.notifications)]);
+ async function run(work:()=>Promise<unknown>,success=''){setBusy(true);setError('');setNotice('');try{const result=await work();if(result&&typeof result==='object'&&'state' in result&&result.state==='blocked')throw new Error((result as NotificationStatus).error);setNotice(success)}catch(e){setError(String(e instanceof Error?e.message:e))}finally{setBusy(false)}}
+ const active=status?.state==='watching'||status?.state==='capturing';
+ return <div className="notification-panel">
+  <section className="privacy-note"><h3>飞书桌面通知 · 本机识别</h3><p>读取选区内可见通知，中文识别和摘要在本机完成，不联网、不保存截图。只保存确认送达的消息。通知被隐藏、截断或未展示时，无法补全原文。</p><p>开始监测时已有通知作为基线；之后新出现的内容才提示。重启后保持暂停。回复仅在本机保存，可复制到飞书手动发送。</p></section>
+  {status?.fixture&&<p className="notice">自动验收夹具 · 未读取系统通知</p>}
+  {error&&<p role="alert" className="error">{error}</p>}{notice&&<p role="status" className="notice">{notice}</p>}
+  <section className="notification-controls">
+   <div className="notification-status" role="status" data-notification-state={status?.state}><strong>{!status?'正在检查识别模块…':status.state==='watching'?'正在监测通知':status.state==='capturing'?'正在识别一次':status.state==='blocked'?'识别已停止，请查看原因':'通知识别已暂停'}</strong><span>本次已送达 {status?.delivered??0} 条 · 已过滤重复 {status?.duplicates??0} 次</span></div>
+   {!status?.available&&status&&<p>通知截图需要 macOS 15.2+ 和原生识别模块。请在 Mac 新版目录执行 npm run build；模拟消息仍可使用。</p>}
+   {status?.error&&<p role="alert" className="summary-warning">{status.error}</p>}
+   <div className="editor-actions"><button className="primary" disabled={!status?.available||busy||active} onClick={()=>void run(()=>window.judge.captureNotification(),'识别完成，请核对下方待确认通知。')}>识别一次</button><button disabled={!status?.available||busy||active} onClick={()=>void run(()=>window.judge.startNotifications(),'已开始监测，当前已有通知作为基线。')}>开始监测</button><button disabled={!active} onClick={()=>void window.judge.stopNotifications().then(()=>setNotice('识别已暂停。')).catch(e=>setError(String(e)))}>暂停识别</button><button disabled={!status?.drafts.length||busy} onClick={()=>void run(()=>window.judge.clearNotificationDrafts(),'已清空草稿并暂停识别。')}>清空草稿并暂停</button></div>
+   <p className="description">开始后可最小化控制台，让通知保持在选区内。关闭控制台窗口不会停止后台识别；请点「暂停识别」停止。</p>
+  </section>
+  <form aria-label="通知识别设置" onSubmit={event=>{event.preventDefault();void run(()=>window.judge.saveNotificationSettings(settings),'通知设置已保存，识别保持暂停。')}}>
+   <h3>识别区域与自动送达</h3>
+   <label>选区位置<select aria-label="选区位置" value={settings.region.mode} onChange={e=>setSettings(v=>({...v,region:{...v.region,mode:e.target.value as 'primary'|'custom'}}))}><option value="primary">主屏幕右上角</option><option value="custom">自定义屏幕坐标</option></select></label>
+   <div className="field-grid">{(['x','y','width','height'] as const).map((key,i)=><label key={key}>{['横坐标 X（点）','纵坐标 Y（点）','选区宽度（点）','选区高度（点）'][i]}<input aria-label={['横坐标 X','纵坐标 Y','选区宽度','选区高度'][i]} type="number" required min={i<2?-20000:50} max={i<2?20000:key==='width'?800:1000} disabled={i<2&&settings.region.mode==='primary'} value={settings.region[key]} onChange={e=>setSettings(v=>({...v,region:{...v.region,[key]:Number(e.target.value)}}))}/></label>)}</div>
+   <label>识别间隔（秒）<input aria-label="识别间隔（秒）" type="number" min={2} max={30} required value={settings.intervalSeconds} onChange={e=>setSettings(v=>({...v,intervalSeconds:Number(e.target.value)}))}/></label>
+   <label className="checkbox-label"><input type="checkbox" checked={settings.autoDeliver} onChange={e=>setSettings(v=>({...v,autoDeliver:e.target.checked}))}/>匹配明确的通知自动送达桌宠</label>
+   <p className="description">默认人工确认。自动送达要求：窗口来源符合飞书通知特征、姓名唯一匹配、识别置信度至少 90%。系统通知还需读到单独的飞书应用标题；无法确认、同名或低置信度的内容仍进入草稿。群通知按「姓名：正文」逐条拆分，群名不作为发送人。没有飞书消息 ID，相同姓名和正文在短时间内可能被合并。</p>
+   <button className="primary" disabled={busy}>保存通知设置</button>
+  </form>
+  <section className="notification-drafts"><h3>待确认通知 · {status?.drafts.length??0} 条</h3><p className="description">在联系人编辑里填写通知姓名别名（每行一个），可与桌面上的显示姓名不同。本轮草稿只保存在内存中，退出应用即清除。</p>
+   {!status?.drafts.length&&<div className="empty">尚无待确认通知。让通知显示在选区内，再点「识别一次」。</div>}
+   {status?.drafts.map(draft=><DraftCard key={draft.id} draft={draft} state={state} busy={busy} onConfirm={(contactId,text)=>void run(async()=>{const message=await window.judge.confirmNotification({draftId:draft.id,contactId,text});setLast(message)},'通知已送达桌宠并保存到本版历史。')} onDismiss={()=>void run(()=>window.judge.dismissNotification(draft.id),'已忽略这条通知。')}/>)}
+  </section>
+  {last&&state.history.some(m=>m.id===last.id)&&<section className="preview"><h3>最近确认的通知</h3><MessageCard state={state} message={state.history.find(m=>m.id===last.id)!}/></section>}
+ </div>;
+}
+function DraftCard({draft,state,busy,onConfirm,onDismiss}:{draft:NotificationDraft;state:State;busy:boolean;onConfirm:(id:string,text:string)=>void;onDismiss:()=>void}){
+ const [contactId,setContactId]=useState(draft.contactIds.length===1?draft.contactIds[0]:''),[text,setText]=useState(draft.body);
+ return <article className="notification-draft" data-draft-id={draft.id} aria-label={'待确认通知 '+draft.sender}>
+  <div className="editor-heading"><h4>{draft.sender}{draft.group&&<small> · 群：{draft.group}</small>}</h4><span>{Math.round(draft.confidence*100)}% · {new Date(draft.capturedAt).toLocaleTimeString('zh-CN')}</span></div>
+  {draft.warnings.map(warning=><p className="summary-warning" key={warning}>{warning}</p>)}
+  <label>对应联系人<select aria-label="对应联系人" value={contactId} onChange={e=>setContactId(e.target.value)}><option value="">请选择联系人</option>{state.contacts.map(c=><option value={c.id} key={c.id}>{c.name} · {categoryLabel(c.category,state.pet.theme)}</option>)}</select></label>
+  <label>核对通知正文<textarea aria-label="核对通知正文" value={text} rows={3} maxLength={5000} onChange={e=>setText(e.target.value)}/></label>
+  <details><summary>查看原始识别正文</summary><p className="notification-raw">{draft.body}</p></details>
+  <div className="editor-actions"><button className="primary" disabled={busy||!contactId||!text.trim()} onClick={()=>onConfirm(contactId,text)}>确认送达桌宠</button><button disabled={busy} onClick={onDismiss}>忽略这条</button></div>
+ </article>;
+}

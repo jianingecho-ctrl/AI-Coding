@@ -1,0 +1,14 @@
+.notification-panel { display:grid;gap:20px; }
+.notification-panel h3,.notification-panel h4 { margin:0 0 12px; }
+.notification-controls,.notification-draft { padding:22px;border:1px solid #91c4dc;border-radius:20px;background:#edf9ffeb; }
+.notification-status { display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:15px;color:#155171; }
+.notification-status span { font-size:12px; }
+.notification-draft { margin-top:15px; }
+.notification-draft label { margin:14px 0; }
+.notification-draft .editor-heading span { font-size:11px;white-space:nowrap; }
+.notification-draft small { font-weight:400;font-size:12px; }
+.notification-draft details { font-size:12px;margin:14px 0;color:#316783; }
+.notification-raw { white-space:pre-wrap;overflow-wrap:anywhere; }
+.notification-source { display:block;margin:8px 0;color:#805d32;font-size:11px; }
+.theme-palace .notification-controls,.theme-palace .notification-draft { background:#fff8e8de;border-color:#ddbe8e; }
+.theme-palace .notification-status,.theme-palace .notification-draft details { color:#775335; }

@@ -8,8 +8,9 @@ export function ContactEditor({contact,pet,assets,busy,onSave,onPreview}:{contac
  const effects=draft.effects!;
  function update<K extends keyof PersonalEffect>(key:K,value:PersonalEffect[K]){setDraft(d=>({...d,effects:{...d.effects!,[key]:value}}));}
  return <section className="contact-editor" aria-label="个性效果编辑器"><div className="editor-heading"><div><span className="eyebrow">个人配置优先于类型默认</span><h3>{contact.name}的专属桌面效果</h3></div><span className="pill">实时预览</span></div>
- <div className="editor-layout"><form onSubmit={e=>{e.preventDefault();onSave(draft)}}>
+ <div className="editor-layout"><form onSubmit={e=>{e.preventDefault();onSave({...draft,notificationNames:[...new Set((draft.notificationNames??[]).map(name=>name.trim()).filter(Boolean))]})}}>
  <label>显示姓名<input aria-label="显示姓名" value={draft.name} onChange={e=>setDraft(d=>({...d,name:e.target.value}))} maxLength={40} required/></label>
+ <label>通知姓名别名（每行一个）<textarea aria-label="通知姓名别名" rows={2} value={(draft.notificationNames??[]).join('\n')} onChange={e=>setDraft(d=>({...d,notificationNames:e.target.value.split('\n')}))} placeholder="例如：小陈 Chen"/><small>保存时按行去空白。匹配通知中的发送人，不匹配群名；同名需人工确认，最多 10 个别名。</small></label>
  <label>人物类型<select aria-label="人物类型" value={draft.category} onChange={e=>setDraft(d=>({...d,category:e.target.value as Contact['category']}))}>{!categories.includes(draft.category as typeof categories[number])&&<option value={draft.category}>{categoryLabel(draft.category,pet.theme)}</option>}{categories.map(c=><option key={c} value={c}>{categoryLabel(c,pet.theme)}</option>)}</select></label>
  <div className="field-grid">
  <label>消息人物<select aria-label="消息人物" value={effects.character} onChange={e=>update('character',e.target.value as PersonalEffect['character'])}><option value="auto">使用类型默认</option>{editionCharacters(pet.theme).map(id=><option key={id} value={id}>{characterLabels[id]}</option>)}</select></label>
@@ -22,6 +23,6 @@ export function ContactEditor({contact,pet,assets,busy,onSave,onPreview}:{contac
  </div>
  <label>自定义人物素材<select aria-label="自定义人物素材" value={effects.assetId??''} onChange={e=>update('assetId',e.target.value||null)}><option value="">使用内置人物</option>{assets.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select><small>在{pet.theme==='palace'?'宫廷人物':'人物设置'}中上传。静态图片只播放进场，GIF 和序列帧保留素材自带动作。</small></label>
  <label>出场台词<input aria-label="出场台词" value={effects.line} onChange={e=>update('line',e.target.value)} maxLength={60} placeholder="留空使用默认台词"/></label>
- <div className="editor-actions"><button className="primary" disabled={busy||!draft.name.trim()}>保存个性效果</button><button type="button" disabled={busy} onClick={()=>onPreview(draft)}>播放桌面预览</button><button type="button" onClick={()=>setDraft(d=>({...d,effects:personalEffectSchema.parse({})}))}>恢复默认</button></div>
+ <div className="editor-actions"><button className="primary" disabled={busy||!draft.name.trim()}>保存个性效果</button><button type="button" disabled={busy} onClick={()=>onPreview({...draft,notificationNames:draft.notificationNames?.map(name=>name.trim()).filter(Boolean)})}>播放桌面预览</button><button type="button" onClick={()=>setDraft(d=>({...d,effects:personalEffectSchema.parse({})}))}>恢复默认</button></div>
  </form><EffectPreview contact={draft} pet={pet}/></div></section>;
 }

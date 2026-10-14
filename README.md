@@ -1,4 +1,4 @@
-# 职场小判官 · 0.8.0
+# 职场小判官 · 0.9.0
 
 Electron + React + TypeScript 的 macOS 桌面消息助手。海洋版与甄嬛传版现为两个独立应用：固定控制台与人物、独立安装身份、独立联系人和数据。移除主题切换，两版可同时运行。
 
@@ -6,8 +6,8 @@ Electron + React + TypeScript 的 macOS 桌面消息助手。海洋版与甄嬛�
 
 | 独立版 | 下载源码 | 双击启动 |
 | --- | --- | --- |
-| 海洋版 | [海洋 0.8.0](https://github.com/jianingecho-ctrl/AI-Coding/archive/refs/tags/ocean-v0.8.0.zip) | 启动海洋版.command |
-| 甄嬛传版 | [甄嬛传 0.8.0](https://github.com/jianingecho-ctrl/AI-Coding/archive/refs/tags/palace-v0.8.0.zip) | 启动甄嬛传版.command |
+| 海洋版 | [海洋 0.9.0](https://github.com/jianingecho-ctrl/AI-Coding/archive/refs/tags/ocean-v0.9.0.zip) | 启动海洋版.command |
+| 甄嬛传版 | [甄嬛传 0.9.0](https://github.com/jianingecho-ctrl/AI-Coding/archive/refs/tags/palace-v0.9.0.zip) | 启动甄嬛传版.command |
 
 源码 ZIP 需要在 Mac 安装依赖并启动，不是已经打包的 .app。步骤见 [独立版指南](docs/独立版使用指南.md) 和 [Mac 教程](docs/Mac使用教程.md)。
 
@@ -40,7 +40,9 @@ Electron + React + TypeScript 的 macOS 桌面消息助手。海洋版与甄嬛�
 - 回复只保存本地并标注未发送到飞书；忽略/关闭恢复待机；历史可恢复到桌面，不重复写入或分析。
 - 最近 200 条消息本地保存；清空历史会清除当前卡片，未完成的旧解析不会重新写回。
 
-只使用模拟飞书消息，不登录账号、不读取 macOS 通知、不发送实际回复。默认关闭 AI，明确显示「本地规则摘要 · 未调用 AI」。可选本机 Ollama 或 OpenAI 兼容服务；失败会提示并降级。在线 AI 只传输当前消息正文、模型参数、摘要提示，不上传名单、历史、回复、素材。
+0.9.0 增加可见飞书通知的本机 OCR 实验接入，支持一次识别、开始/暂停、姓名别名、群通知拆分、人工确认、严格条件下自动送达和短时去重。不会登录账号或读取后台聊天；只能处理所选区域的可见文本。详见 [飞书通知使用教程](docs/飞书通知使用教程.md)。真实通知始终使用本地规则，不调用外部 AI，回复可保存并复制到飞书手动发送。
+
+模拟消息继续支持可选 AI。默认关闭 AI，明确显示「本地规则摘要 · 未调用 AI」。可选本机 Ollama 或 OpenAI 兼容服务；失败会提示并降级。在线 AI 只传输当前消息正文、模型参数、摘要提示，不上传名单、历史、回复、素材。
 
 ## 目录
 
@@ -52,6 +54,8 @@ AI-Coding/
 │   ├── editions.ts           数据目录与旧海洋数据复制
 │   ├── store.ts              校验与原子保存
 │   ├── messages.ts           消息分析和历史
+│   ├── notifications.ts      草稿、来源校验、匹配、监测与去重
+│   ├── notification-adapter.ts 原生识别进程适配
 │   ├── interactions.ts       每日计数
 │   ├── assets.ts             素材导入
 │   ├── ai.ts                 可替换的 AI 服务
@@ -64,6 +68,7 @@ AI-Coding/
 │   ├── components/           人物、卡片、配置和统计
 │   ├── ocean.css             海洋界面
 │   └── palace.css            宫廷界面和卡片
+├── native/                   Swift 区域截图、Vision OCR 和构建脚本
 ├── public/                   本地人物素材
 ├── scripts/export-editions.mjs 独立源码导出
 ├── tests/                    单元、Electron、隔离验收
@@ -91,16 +96,19 @@ npm run test:desktop
 npm run build
 node tests/palace-desktop.cjs
 npm run test:isolation
+npm run test:notifications
 npm run sources
 ```
 
 导出到 .edition-sources/ocean 和 .edition-sources/palace，分别写入标识、包名、Bundle ID、产品名、打包目录与启动脚本，并剔除外版内置素材。独立包的 npm run test:desktop 验收本版。
 
-Linux 云端已通过 78 项单元测试、TypeScript、生产构建、两版真实 Electron 交互及双应用隔离测试。隔离验收让两版在相同测试父目录同时运行：验证联系人、消息、回复、次数、素材、密钥文件、会话独立，外版人物被拒绝，清除、退出、重启互不影响，同版重复打开只激活已有进程。
+Linux 云端已通过 94 项单元测试、TypeScript、生产构建、两版真实 Electron 交互及双应用隔离测试。隔离验收让两版在相同测试父目录同时运行：验证联系人、消息、回复、次数、素材、密钥文件、会话独立，外版人物被拒绝，清除、退出、重启互不影响，同版重复打开只激活已有进程。
 
 Linux 桌面验收需要 Xvfb，测试只在 Linux 测试进程使用 --no-sandbox。应用窗口保持上下文隔离、禁用页面 Node、沙箱开启。截图输出在 test-results。
 
-Mac 仍需手动验收：双击脚本、拖动、实际音效、Spaces/全屏/多屏置顶、Retina、原生文件选择器、Keychain、真实 AI、DMG 打包和安装。云端没有 macOS，没有生成已签名或公证的 Mac 安装包。
+通知桌面测试使用明确标注的虚构 OCR 夹具，未读取系统通知。启动监测以首轮可见通知为基线；默认人工确认、重启暂停。Swift 原生模块只在 Mac 构建，Linux 的 build 明确跳过这一步。
+
+Mac 仍需手动验收：原生编译、实际截图与通知窗口来源判断、当前应用录屏授权、双击脚本、拖动、实际音效、Spaces/全屏/多屏置顶、Retina、原生文件选择器、Keychain、真实 AI、DMG 打包和安装。云端没有 macOS，没有生成已签名或公证的 Mac 安装包。
 
 ## 打包与数据
 
