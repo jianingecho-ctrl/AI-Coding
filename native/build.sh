@@ -15,5 +15,5 @@ for architecture in "${architectures[@]}"; do
     -swift-version 5 -parse-as-library -O -module-cache-path ".build/modules-$architecture" \
     NotificationCapture.swift -o "bin/NotificationCapture-$architecture.tmp"
   /bin/mv "bin/NotificationCapture-$architecture.tmp" "bin/NotificationCapture-$architecture"
-  echo "原生通知识别模块已构建：$architecture（SDK $JUDGE_SELECTED_SDK_VERSION）"
+  echo "原生通知识别模块已构建：${architecture}（SDK ${JUDGE_SELECTED_SDK_VERSION}）"
 done
