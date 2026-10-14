@@ -3,7 +3,7 @@ import type { Bridge,State,Message } from '../src/lib/model';
 import type {NotificationStatus} from '../src/lib/notifications';
 const bridge:Bridge={
  notificationStatus:()=>ipcRenderer.invoke('notifications:status'),saveNotificationSettings:settings=>ipcRenderer.invoke('notifications:save',settings),
- captureNotification:()=>ipcRenderer.invoke('notifications:once'),startNotifications:()=>ipcRenderer.invoke('notifications:start'),stopNotifications:()=>ipcRenderer.invoke('notifications:stop'),
+ captureNotification:delay=>ipcRenderer.invoke('notifications:once',delay),startNotifications:()=>ipcRenderer.invoke('notifications:start'),stopNotifications:()=>ipcRenderer.invoke('notifications:stop'),
  confirmNotification:input=>ipcRenderer.invoke('notifications:confirm',input),dismissNotification:id=>ipcRenderer.invoke('notifications:dismiss',id),clearNotificationDrafts:()=>ipcRenderer.invoke('notifications:clear'),copyText:text=>ipcRenderer.invoke('clipboard:copy',text),
  onNotifications:callback=>{const listener=(_:unknown,status:NotificationStatus)=>callback(status);ipcRenderer.on('notifications:changed',listener);return()=>ipcRenderer.removeListener('notifications:changed',listener);},
  getAppInfo:()=>ipcRenderer.invoke('app:info'),
