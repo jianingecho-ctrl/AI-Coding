@@ -91,7 +91,7 @@ if(primary)app.whenReady().then(async()=>{
  const requirePanel=(event:Electron.IpcMainInvokeEvent)=>{if(event.sender.id!==panel?.webContents.id)throw new Error('请通过控制台操作通知识别。');};
  ipcMain.handle('notifications:status',()=>notifications.get());
  ipcMain.handle('notifications:save',async(event,input)=>{requirePanel(event);notifications.stop();const settings=notificationSettingsSchema.parse(input);const state=await store.update(s=>({...s,notifications:settings}));broadcast(state);return state;});
- ipcMain.handle('notifications:once',(event)=>{requirePanel(event);return notifications.once();});
+ ipcMain.handle('notifications:once',(event,delay)=>{requirePanel(event);return notifications.once(z.number().int().min(0).max(10).default(0).parse(delay));});
  ipcMain.handle('notifications:start',(event)=>{requirePanel(event);return notifications.start();});
  ipcMain.handle('notifications:stop',(event)=>{requirePanel(event);return notifications.stop();});
  ipcMain.handle('notifications:confirm',(event,input)=>{requirePanel(event);return notifications.confirm(z.object({draftId:z.string().uuid(),contactId:z.string().min(1).max(100),text:z.string().trim().min(1).max(5000)}).parse(input));});
