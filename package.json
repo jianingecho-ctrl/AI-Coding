@@ -1,19 +1,21 @@
 {
-  "name": "workplace-little-judge",
-  "version": "0.7.0",
+  "name": "workplace-little-judge-ocean",
+  "version": "0.8.0",
   "private": true,
-  "description": "职场小判官：模拟消息桌面宠物",
+  "description": "职场小判官·海洋版：独立桌面应用",
   "author": "职场小判官",
   "main": "dist-electron/electron/main.js",
   "scripts": {
     "dev": "npm run build:electron && concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "build:electron": "tsc -p tsconfig.electron.json",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --dir tests",
     "build": "npm run typecheck && vite build && npm run build:electron",
     "start": "electron .",
     "pack:mac": "npm run build && electron-builder --mac",
-    "test:desktop": "npm run build && node tests/desktop.cjs"
+    "test:desktop": "npm run build && node tests/desktop.cjs",
+    "sources": "node scripts/export-editions.mjs",
+    "test:isolation": "npm run build && node tests/isolation.cjs"
   },
   "dependencies": {
     "lottie-web": "^5.13.0",
@@ -38,15 +40,17 @@
     "wait-on": "^9.0.1"
   },
   "build": {
-    "appId": "cn.workplace.littlejudge",
-    "productName": "职场小判官",
+    "appId": "cn.workplace.littlejudge.ocean",
+    "productName": "职场小判官·海洋版",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "package.json"
+      "package.json",
+      "edition.json",
+      "!dist/characters/palace_*.png"
     ],
     "directories": {
-      "output": "release"
+      "output": "release/ocean"
     },
     "mac": {
       "target": [

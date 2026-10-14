@@ -1,6 +1,7 @@
 import {contextBridge,ipcRenderer} from 'electron';
 import type { Bridge,State,Message } from '../src/lib/model';
 const bridge:Bridge={
+ getAppInfo:()=>ipcRenderer.invoke('app:info'),
  getState:()=>ipcRenderer.invoke('state:get'),saveSettings:settings=>ipcRenderer.invoke('settings:save',settings),
  sendMessage:input=>ipcRenderer.invoke('message:send',input),clearHistory:()=>ipcRenderer.invoke('history:clear'),
  previewContact:contact=>ipcRenderer.invoke('effect:preview',contact),

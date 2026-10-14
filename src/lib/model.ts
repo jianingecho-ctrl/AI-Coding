@@ -54,8 +54,10 @@ export const stateSchema=z.object({
  interactions:z.array(dailyInteractionSchema).max(9000).default([]),
 });
 export type State=z.infer<typeof stateSchema>;
+export interface AppInfo{edition:Theme;name:string;label:string;version:string;appId:string;dataDirectory:string;migratedLegacy:boolean}
 export const defaultState:State={contacts:categories.map((category,i)=>({id:['boss','honest','bored','laidback','silly','bigSilly','npc'][i],name:['王经理','老实小陈','厌世小周','躺平搭子','小迷糊','甩锅达人','路过同事'][i],category})),history:[],pet:{name:'小判官',color:'薄荷绿',skin:'desert',character:'npc',assetId:null,alwaysOnTop:true,scale:.6,soundEnabled:true,soundVolume:.45,theme:'ocean'},ai:{enabled:false,provider:'ollama',model:'qwen2.5:3b',baseUrl:'https://api.openai.com/v1'},assets:[],interactions:[]};
 export interface Bridge{
+ getAppInfo():Promise<AppInfo>;
  getState():Promise<State>;saveSettings(settings:Pick<State,'contacts'|'pet'>&{ai?:State['ai']}):Promise<State>;
  sendMessage(input:{contactId:string;text:string}):Promise<Message>;previewContact(contact:Contact):Promise<Message>;
  clearDisplayedMessage():Promise<void>;importAsset():Promise<Asset|null>;getAssetFrames(id:string):Promise<string[]>;

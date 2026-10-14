@@ -1,6 +1,6 @@
 import {useEffect, useState, useRef, type CSSProperties} from 'react';
 import {
-  categories, defaultState, type State, type Message, type Contact, type Category, type CharacterSkin, type CharacterId,type InteractionKind,
+  categories, defaultState, type State, type Message, type Contact, type Category, type CharacterSkin, type CharacterId,type InteractionKind,type AppInfo,
 } from './lib/model';
 import {
   entryLabels, cardSkins, characterSkins, characterRoster, characterLabels, hasPersonalEffects, isKneeling, messageEffects, resolveEffects,
@@ -17,14 +17,14 @@ import {DemoPlayer,demoContacts} from './lib/demo';
 import {PetPreferences} from './components/PetPreferences';
 import {InteractionStats} from './components/InteractionStats';
 import {PalaceBackdrop} from './components/PalaceBackdrop';
-import {ThemeSwitcher} from './components/ThemeSwitcher';
-import {palaceRoster,themePet,themeNames} from './lib/palace';
-import type {Theme} from './lib/model';
+import {palaceRoster} from './lib/palace';
+import {categoryLabel,editionCardSkins,editionSkins} from './lib/editions';
 
 export function App() {
   const [state, setState] = useState<State>(structuredClone(defaultState));
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
+  const [appInfo,setAppInfo]=useState<AppInfo|null>(null);
   useEffect(() => {
     if (!window.judge) {
       setError('请通过 Electron 启动应用：npm run dev。浏览器页面无法访问桌面功能。');
@@ -32,8 +32,8 @@ export function App() {
     }
     let active = true;
     const off = window.judge.onState(s => { if (active) setState(s); });
-    window.judge.getState().then(s => {
-      if (active) { setState(s); setReady(true); }
+    Promise.all([window.judge.getAppInfo(),window.judge.getState()]).then(([info,s]) => {
+      if (active) { setState(s);setAppInfo(info);setReady(true); }
     }).catch(e => setError(String(e)));
     return () => { active = false; off(); };
   }, []);
@@ -42,8 +42,9 @@ export function App() {
     document.body.classList.toggle('pet-window', petView);
     document.documentElement.classList.toggle('pet-window', petView);
   }, [petView]);
+  if(!appInfo)return <p className="bootstrap-status">{error||'正在打开独立版小判官…'}</p>;
   if (petView) return <Pet state={state} error={error}/>;
-  return <Panel state={state} ready={ready} error={error} setError={setError}/>;
+  return <Panel appInfo={appInfo} state={state} ready={ready} error={error} setError={setError}/>;
 }
 
 function Pet({state, error}: {state: State; error: string}) {
@@ -88,8 +89,8 @@ function Pet({state, error}: {state: State; error: string}) {
   </main>;
 }
 
-function Panel({state, ready, error, setError}: {
-  state: State; ready: boolean; error: string; setError: (s: string) => void;
+function Panel({appInfo,state, ready, error, setError}: {
+  appInfo:AppInfo;state: State; ready: boolean; error: string; setError: (s: string) => void;
 }) {
   const [tab, setTab] = useState('测试面板');
   const [selected, setSelected] = useState('bigSilly');
@@ -123,7 +124,8 @@ function Panel({state, ready, error, setError}: {
   const chosen = state.contacts.find(c => c.id === selected);
   const editing = state.contacts.find(c => c.id === editingId);
   const palace=state.pet.theme==='palace',roster=palace?palaceRoster:characterRoster;
-  function switchTheme(theme:Theme){void execute(async()=>{await save(state.contacts,themePet(state.pet,theme));await window.judge.clearDisplayedMessage();},themeNames[theme]+'主题已启用。');}
+  const skins=editionSkins(appInfo.edition),cards=editionCardSkins(appInfo.edition);
+  const tabNames:Record<string,string>=palace?{'测试面板':'传话演示','联系人':'宫中名册','消息历史':'往来书信','互动统计':'互动战绩','人物设置':'宫廷人物'}:{};
   function preview(contact: Contact) {
     void execute(() => window.judge.previewContact(contact), '桌面预览已播放，未写入消息历史。');
   }
@@ -139,27 +141,28 @@ function Panel({state, ready, error, setError}: {
   return <main className={'dashboard theme-'+state.pet.theme}>
     {palace?<PalaceBackdrop/>:<OceanBackdrop/>}
     <aside>
-      <div className="brand-icon">判</div>
-      <h1>职场小判官<span>{palace?'宫廷来信，本宫替你判':'每人一张脸，消息各有戏'}</span></h1>
+      <div className="brand-icon">{palace?'宫':'海'}</div>
+      <h1>职场小判官<span>{palace?'甄嬛传独立版 · 本宫替你判':'海洋独立版 · 每人各有戏'}</span></h1>
       <nav>{['测试面板', '联系人', '消息历史','互动统计', '人物设置'].map(t =>
-        <button key={t} className={tab === t ? 'active' : ''} onClick={() => {if(demoRunning)stopDemo();setTab(t);setNotice('');}}>{t}</button>
+        <button key={t} data-tab={t} className={tab === t ? 'active' : ''} onClick={() => {if(demoRunning)stopDemo();setTab(t);setNotice('');}}>{tabNames[t]??t}</button>
       )}</nav>
-      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>{palace?'甄嬛传宫廷版':'海洋桌宠版'} / 0.7.0</p></div>
+      <div className="aside-bottom"><span className="status-dot"/>模拟飞书 · 本地运行<p>{appInfo.label} / {appInfo.version}</p></div>
     </aside>
 
     <section className="workspace">
-      <header><div><span className="eyebrow">{palace?'今日入宫上班，差事也要有排面':'职场有点苦，角色有点逗'}</span><h2>{tab}</h2></div>
+      <header><div><span className="eyebrow">{palace?'今日入宫上班，差事也要有排面':'职场有点苦，角色有点逗'}</span><h2>{tabNames[tab]??tab}</h2></div>
         <button onClick={()=>window.judge.showPet()}>显示桌宠</button><span className="pill">{state.ai.enabled ? (state.ai.provider==='ollama'?'本地 AI 模式':'在线 AI 模式') : '离线规则模式'}</span></header>
       {error && <p role="alert" className="error">{error}</p>}
       {notice && <p role="status" className="notice">{notice}</p>}
-      <ThemeSwitcher theme={state.pet.theme} busy={!ready||busy} onChange={switchTheme}/>
+      <div className="edition-banner"><strong>{appInfo.name}</strong><span>人物、联系人、消息和互动次数仅保存在本版</span></div>
+      {appInfo.migratedLegacy&&<p className="notice">旧海洋版的配置和记录已复制到本版，原目录保留。AI 当前关闭，请在本版重新设置密钥。</p>}
 
       {tab === '测试面板' && <>
         <div className="intro">
           <div><span className="eyebrow">{palace?'甄嬛传 · 七位原创 Q 版宫廷人物':'七类人物，各有进场剧本'}</span><h3>{palace?'宫里来消息，本宫替你捋明白。':'谁来消息，谁的专属角色出场。'}</h3>
             <p>{palace?'皇上、甄嬛、华妃等七位人物，带着各自的台词和进场亮相。':'同一条消息，换个人发，就是另一出戏。'}</p>
             <div className="category-pills">{categories.map(c =>
-              <span key={c}>{palace?characterLabels[resolveEffects({id:'sample',name:c,category:c},state.pet).character]:c} · {entryLabels[resolveEffects({id: 'sample', name: c, category: c}).entry]}</span>
+              <span key={c}>{categoryLabel(c,appInfo.edition)} · {entryLabels[resolveEffects({id: 'sample', name: c, category: c}).entry]}</span>
             )}</div>
           </div>
           <Character character={chosen ? resolveEffects(chosen, state.pet).character : state.pet.character} action={chosen ? resolveEffects(chosen, state.pet).action : 'idle'} skin={chosen ? resolveEffects(chosen, state.pet).characterSkin : state.pet.skin} color={state.pet.color} assetId={chosen?resolveEffects(chosen,state.pet).assetId:null}/>
@@ -175,7 +178,7 @@ function Panel({state, ready, error, setError}: {
           void execute(async () => setLast(await window.judge.sendMessage({contactId: selected, text})), '消息已送达桌宠，打开桌宠窗口查看动画。');
         }}>
           <label>消息来自<select value={selected} onChange={e => setSelected(e.target.value)} disabled={busy}>
-            {state.contacts.map(c => <option key={c.id} value={c.id}>{c.name} · {c.category}</option>)}
+            {state.contacts.map(c => <option key={c.id} value={c.id}>{c.name} · {categoryLabel(c.category,appInfo.edition)}</option>)}
           </select></label>
           <label>模拟飞书消息<textarea value={text} onChange={e => setText(e.target.value)} maxLength={5000} rows={4}
             placeholder="输入消息内容，如：请明天18点前提交周报，收到请回复。"/></label>
@@ -203,7 +206,7 @@ function Panel({state, ready, error, setError}: {
             </button>
             <select aria-label={c.name + '的类别'} value={c.category} disabled={!ready || busy} onChange={e =>
               void execute(() => save(state.contacts.map(v => v.id === c.id ? {...v, category: e.target.value as Category} : v)), '联系人类别已保存。')
-            }>{!categories.includes(c.category as typeof categories[number])&&<option>{c.category}</option>}{categories.map(t => <option key={t}>{t}</option>)}</select>
+            }>{!categories.includes(c.category as typeof categories[number])&&<option value={c.category}>{categoryLabel(c.category,appInfo.edition)}</option>}{categories.map(t => <option key={t} value={t}>{categoryLabel(t,appInfo.edition)}</option>)}</select>
             <button disabled={!ready || busy} onClick={() => {
               if (confirm('删除联系人「' + c.name + '」？已有消息历史会保留。'))
                 void execute(() => save(state.contacts.filter(v => v.id !== c.id)), '联系人已删除。');
@@ -222,7 +225,7 @@ function Panel({state, ready, error, setError}: {
           }, '联系人已添加，可以继续设置专属效果。');
         }}>
           <label>联系人姓名<input value={newName} onChange={e => setNewName(e.target.value)} maxLength={40} placeholder="输入同事姓名"/></label>
-          <label>类别<select aria-label="类别" value={newCategory} onChange={e => setNewCategory(e.target.value as Category)}>{categories.map(c => <option key={c}>{c}</option>)}</select></label>
+          <label>类别<select aria-label="类别" value={newCategory} onChange={e => setNewCategory(e.target.value as Category)}>{categories.map(c => <option key={c} value={c}>{categoryLabel(c,appInfo.edition)}</option>)}</select></label>
           <button className="primary" disabled={busy || !ready || !newName.trim() || state.contacts.length >= 100}>添加联系人</button>
         </form>
       </>}
@@ -235,49 +238,49 @@ function Panel({state, ready, error, setError}: {
           }}>清空历史</button></div>
         {state.history.length ? state.history.map(m => <div className="history-item" key={m.id}>
           <time>{new Date(m.createdAt).toLocaleString('zh-CN')}</time><button onClick={()=>void execute(()=>window.judge.restoreMessage(m.id),'历史消息已恢复到桌面。')}>恢复到桌面</button><MessageCard state={state} message={m}/>
-        </div>) : <div className="empty">还没有消息。去测试面板让桌宠接个活吧。</div>}
+        </div>) : <div className="empty">还没有消息。去{palace?'传话演示':'测试面板'}让桌宠接个活吧。</div>}
       </>}
 
       {tab==='互动统计'&&<InteractionStats state={state} busy={busy} onClear={()=>{if(confirm('确定清空全部本地互动统计（包含之前日期）？消息历史会保留。'))void execute(()=>window.judge.clearInteractions(),'互动统计已清空。')}}/>}
 
       {tab === '人物设置' && <>
         <PetPreferences pet={state.pet} busy={!ready||busy} onSave={preferences=>void execute(()=>save(state.contacts,{...state.pet,...preferences}),'尺寸与音效已保存。')}/>
-        <div className="settings-title"><div><h3>{palace?'请一位宫廷人物，陪你批阅差事。':'选个待机角色，给每个人安排一张脸。'}</h3><p className="description">{palace?'七位人物使用原创 Q 版清宫卡通素材与 Lottie 待机动画。':'七类人物使用 Word 中的本地图片与 Lottie 轮廓动画，保持原图姿态。'}这里选择没有消息时的默认角色；来消息时使用联系人的角色，关闭卡片后恢复待机角色。切换主题会更换待机人物与原色皮肤，联系人指定的人物、素材和其他个性设置继续优先。</p></div></div>
+        <div className="settings-title"><div><h3>{palace?'请一位宫廷人物，陪你批阅差事。':'选个待机角色，给每个人安排一张脸。'}</h3><p className="description">{palace?'本版只提供七位原创 Q 版宫廷人物。':'本版提供海洋人物与旧版骆驼。'}这里选择没有消息时的默认角色；来消息时使用联系人的角色，关闭卡片后恢复待机角色。联系人个人设置优先。</p></div></div>
         <div className="character-gallery" role="group" aria-label="七类消息人物">{roster.map(c =>
           <button type="button" className={'character-choice '+(characterDraft===c.id?'selected':'')} key={c.id}
             aria-label={c.name} aria-pressed={characterDraft===c.id} onClick={()=>setCharacterDraft(c.id)}>
             <Character character={c.id}/><strong>{c.name}</strong><small>{c.description}</small>
           </button>
         )}</div>
-        <details className="legacy-character"><summary>保留旧版骆驼</summary>
+        {!palace&&<details className="legacy-character"><summary>保留旧版骆驼</summary>
           <button type="button" aria-pressed={characterDraft==='camel'} onClick={()=>setCharacterDraft('camel')}>选择连帽衫骆驼</button>
         <div className="skin-gallery" role="group" aria-label="默认人物皮肤">{characterSkins.map(s =>
           <button key={s.id} type="button" className={'skin-choice ' + (skinDraft === s.id ? 'selected' : '')} aria-pressed={skinDraft === s.id} aria-label={s.name} onClick={() => {setSkinDraft(s.id);setCharacterDraft('camel');}}>
             <Character character="camel" skin={s.id} color={state.pet.color}/><strong>{s.name}</strong><small>{s.description}</small>
           </button>
         )}</div>
-        </details>
+        </details>}
         <form key={state.pet.name + '-' + state.pet.color} onSubmit={e => {
           e.preventDefault();
           const data = new FormData(e.currentTarget);
           void execute(() => save(state.contacts, {...state.pet,name: String(data.get('name')).trim(), color: String(data.get('color')) as State['pet']['color'], skin: skinDraft, character:characterDraft,assetId:String(data.get('assetId'))||null,alwaysOnTop:data.get('alwaysOnTop')==='on'}), '人物设置已保存。');
         }}>
           <label>小判官昵称<input name="name" defaultValue={state.pet.name} required maxLength={20}/></label>
-          <label>工服颜色<select name="color" defaultValue={state.pet.color}>{['薄荷绿', '蜜桃粉', '奶油黄'].map(c => <option key={c}>{c}</option>)}</select>
-            <small>工服颜色用于旧版骆驼；原创人物使用下面的皮肤配色。</small></label>
-          <label>默认人物皮肤<select value={skinDraft} onChange={e=>setSkinDraft(e.target.value as CharacterSkin)}>{characterSkins.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+          {!palace?<label>工服颜色<select name="color" defaultValue={state.pet.color}>{['薄荷绿', '蜜桃粉', '奶油黄'].map(c => <option key={c}>{c}</option>)}</select>
+            <small>工服颜色用于旧版骆驼；原创人物使用下面的皮肤配色。</small></label>:<input type="hidden" name="color" value={state.pet.color}/>}
+          <label>默认人物皮肤<select value={skinDraft} onChange={e=>setSkinDraft(e.target.value as CharacterSkin)}>{skins.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
           <label>待机自定义素材<select name="assetId" defaultValue={state.pet.assetId??''}><option value="">使用内置人物</option>{state.assets.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
           <label className="checkbox-label"><input name="alwaysOnTop" type="checkbox" defaultChecked={state.pet.alwaysOnTop}/>桌面窗口置顶</label>
           <button className="primary" disabled={!ready || busy}>保存人物设置</button>
         </form>
-        <div className="card-skin-samples">{cardSkins.map(s => <div key={s.id} className={'preview-card card-' + s.id}><small>消息卡片皮肤</small><p>{s.name}</p></div>)}</div>
+        <div className="card-skin-samples">{cards.map(s => <div key={s.id} className={'preview-card card-' + s.id}><small>消息卡片皮肤</small><p>{s.name}</p></div>)}</div>
         <p className="description">拖动人物或顶部拖动区移动窗口。消息持续显示，直到关闭或下一条消息到来。关闭控制台不会退出桌宠。</p>
-        <section className="asset-library"><h3>自定义人物素材</h3><p className="description">上传 PNG / JPG / WebP 静态图，GIF 动画，或一次选择多张图片作为序列帧（按文件名数字排序）。素材复制到本机，可在每个联系人或待机设置中选择。图片不会自动变成跪姿。</p>
+        <section className="asset-library"><h3>自定义人物素材</h3><p className="description">上传 PNG / JPG / WebP 静态图，GIF 动画，或一次选择多张图片作为序列帧（按文件名数字排序）。素材复制到本版，可在每个联系人或待机设置中选择。静态图片不会自动生成动作。</p>
         <button disabled={!ready||busy} onClick={()=>void execute(()=>window.judge.importAsset(),'素材选择已完成，上传成功的素材显示在下方。')}>上传图片 / GIF / 序列帧</button>
-        <div className="asset-grid">{state.assets.map(a=><div className="asset-item" key={a.id}><Character character="npc" assetId={a.id}/><strong>{a.name}</strong><small>{a.kind==='sequence'?'序列帧 · '+a.files.length+' 帧':a.kind==='gif'?'GIF 动画':'静态图片'}</small></div>)}</div></section>
+        <div className="asset-grid">{state.assets.map(a=><div className="asset-item" key={a.id}><Character character={palace?'palace_zhenhuan':'npc'} assetId={a.id}/><strong>{a.name}</strong><small>{a.kind==='sequence'?'序列帧 · '+a.files.length+' 帧':a.kind==='gif'?'GIF 动画':'静态图片'}</small></div>)}</div></section>
         <AiSettings key={JSON.stringify(state.ai)} state={state} busy={!ready||busy} execute={(task,success)=>void execute(task,success)}/>
         <div className="editor-actions"><button onClick={()=>window.judge.showPet()}>显示桌宠</button><button onClick={()=>window.judge.hidePet()}>隐藏桌宠</button></div>
-        <button className="quit-button" onClick={() => window.judge.quit()}>退出职场小判官</button>
+        <button className="quit-button" onClick={() => window.judge.quit()}>退出{appInfo.name}</button>
       </>}
     </section>
   </main>;

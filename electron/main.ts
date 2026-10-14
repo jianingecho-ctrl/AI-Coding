@@ -1,9 +1,9 @@
 import {app,BrowserWindow,ipcMain,Menu,screen,dialog,nativeImage} from 'electron';
 import path from 'node:path';
-import {readFileSync} from 'node:fs';
+import {readFileSync,mkdirSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import {contactSchema,stateSchema,type State,type Message} from '../src/lib/model';
+import {contactSchema,stateSchema,type State,type Message,type AppInfo} from '../src/lib/model';
 import {messageEffects} from '../src/lib/effects';
 import {MessagePipeline} from './messages';
 import {Store} from './store';
@@ -11,8 +11,19 @@ import {importFiles,readFrames} from './assets';
 import {Credentials} from './credentials';
 import {InteractionService} from './interactions';
 import {petWindowSize,resizedPetBounds} from '../src/lib/pet-layout';
-import {themePet} from '../src/lib/palace';
-if(process.env.JUDGE_DATA_DIR)app.setPath('userData',path.resolve(process.env.JUDGE_DATA_DIR));
+import {editionDefinitions,editionDefaults,normalizeEditionState,assertEditionSettings,assertEditionContact} from '../src/lib/editions';
+import {parseEdition,editionDataRoot,migrateLegacyOcean} from './editions';
+const editionFile=!app.isPackaged&&process.env.JUDGE_EDITION_FILE?process.env.JUDGE_EDITION_FILE:path.join(__dirname,'../../edition.json');
+const edition=parseEdition(readFileSync(editionFile,'utf8')),identity=editionDefinitions[edition];
+const dataBase=process.env.JUDGE_DATA_DIR?path.resolve(process.env.JUDGE_DATA_DIR):app.getPath('appData');
+const dataRoot=editionDataRoot(dataBase,edition);
+mkdirSync(path.join(dataRoot,'session'),{recursive:true,mode:0o700});
+app.setName(identity.name);app.setPath('userData',dataRoot);app.setPath('sessionData',path.join(dataRoot,'session'));
+const appInfo:AppInfo={edition,name:identity.name,label:identity.label,version:app.getVersion(),appId:identity.appId,dataDirectory:dataRoot,migratedLegacy:false};
+const expected=process.argv.find(a=>a.startsWith('--expect-edition=')||a.startsWith('--theme='))?.split('=')[1];
+const editionMismatch=Boolean(expected&&expected!==edition);
+const primary=editionMismatch?false:app.requestSingleInstanceLock({edition});
+if(!primary&&!editionMismatch)app.quit();
 let pet:BrowserWindow|null=null;
 let panel:BrowserWindow|null=null;
 let store:Store;
@@ -21,6 +32,7 @@ let credentials:Credentials;
 let assetRoot:string;
 let interactions:InteractionService;
 let petExpanded=false;
+let initialized=false;
 const devURL=process.env.VITE_DEV_SERVER_URL;
 function load(window:BrowserWindow,view:string){
  if(devURL)void window.loadURL(`${devURL}/?view=${view}`);
@@ -31,7 +43,7 @@ function load(window:BrowserWindow,view:string){
 function options(){return {preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true};}
 function openPanel(){
  if(panel&&!panel.isDestroyed()){panel.show();panel.focus();return;}
- panel=new BrowserWindow({width:1020,height:820,minWidth:800,minHeight:640,title:'职场小判官 · 控制台',backgroundColor:'#d3f0fc',webPreferences:options()});
+ panel=new BrowserWindow({width:1020,height:820,minWidth:800,minHeight:640,title:identity.name+' · 控制台',backgroundColor:edition==='palace'?'#fff6e2':'#d3f0fc',webPreferences:options()});
  load(panel,'panel');panel.on('closed',()=>{panel=null;});
 }
 function broadcast(state:State){for(const w of BrowserWindow.getAllWindows())w.webContents.send('state:changed',state);}
@@ -52,9 +64,11 @@ function deliver(message:Message){
  }
  pet.show();pet.webContents.send('message:new',message);
 }
-app.whenReady().then(async()=>{
- store=new Store(path.join(app.getPath('userData'),'judge-state.json'));await store.load();
- if(process.argv.includes('--theme=palace')&&store.get().pet.theme!=='palace')await store.update(s=>({...s,pet:themePet(s.pet,'palace')}));
+if(editionMismatch)app.whenReady().then(()=>{dialog.showErrorBox('请使用对应的独立版',`当前目录是${identity.name}，请下载并打开另一版的独立文件夹。两版不能切换。`);app.exit(1);});
+if(primary)app.whenReady().then(async()=>{
+ if(process.platform==='darwin'&&app.dock){app.dock.setBadge(edition==='palace'?'宫':'海');app.dock.setIcon(nativeImage.createFromPath(path.join(__dirname,'../../dist/characters',edition==='palace'?'palace_zhenhuan.png':'npc.png')));}
+ if(edition==='ocean')appInfo.migratedLegacy=await migrateLegacyOcean(dataRoot,[path.join(dataBase,'workplace-little-judge'),path.join(dataBase,'职场小判官')]);
+ store=new Store(path.join(dataRoot,'judge-state.json'),editionDefaults(edition),s=>normalizeEditionState(s,edition));await store.load();
  assetRoot=path.join(app.getPath('userData'),'assets');
  credentials=new Credentials(path.join(app.getPath('userData'),'ai-key.enc'));
  messages=new MessagePipeline(store,()=>credentials.get());
@@ -64,10 +78,12 @@ app.whenReady().then(async()=>{
  pet=new BrowserWindow({...size,x:Math.max(area.x,area.x+area.width-size.width-20),y:Math.max(area.y,area.y+area.height-size.height-20),transparent:true,frame:false,alwaysOnTop:true,resizable:false,hasShadow:false,skipTaskbar:true,webPreferences:options()});
  pet.setAlwaysOnTop(store.get().pet.alwaysOnTop,'floating');pet.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});load(pet,'pet');
  pet.on('closed',()=>{pet=null;app.quit();});
- Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'职场小判官',submenu:[{label:'打开控制台',click:openPanel},{label:'显示桌宠',click:()=>pet?.show()},{label:'隐藏桌宠',click:()=>{openPanel();pet?.hide()}},{label:'退出职场小判官',click:()=>app.quit()}]},{label:'编辑',submenu:[{label:'撤销',role:'undo'},{label:'重做',role:'redo'},{type:'separator'},{label:'剪切',role:'cut'},{label:'复制',role:'copy'},{label:'粘贴',role:'paste'},{label:'全选',role:'selectAll'}]}]));
+ Menu.setApplicationMenu(Menu.buildFromTemplate([{label:identity.name,submenu:[{label:'打开控制台',click:openPanel},{label:'显示桌宠',click:()=>pet?.show()},{label:'隐藏桌宠',click:()=>{openPanel();pet?.hide()}},{label:'退出'+identity.name,click:()=>app.quit()}]},{label:'编辑',submenu:[{label:'撤销',role:'undo'},{label:'重做',role:'redo'},{type:'separator'},{label:'剪切',role:'cut'},{label:'复制',role:'copy'},{label:'粘贴',role:'paste'},{label:'全选',role:'selectAll'}]}]));
+ ipcMain.handle('app:info',()=>appInfo);
  ipcMain.handle('state:get',()=>store.get());
  ipcMain.handle('settings:save',async(_,input)=>{
   const settings=z.object({contacts:z.array(contactSchema).max(100),pet:stateSchema.shape.pet,ai:stateSchema.shape.ai.optional()}).parse(input);
+  assertEditionSettings(settings,edition);
   if(new Set(settings.contacts.map(c=>c.id)).size!==settings.contacts.length)throw new Error('联系人标识重复');
   const state=await store.update(s=>({...s,contacts:settings.contacts,pet:settings.pet,ai:settings.ai??s.ai}));pet?.setAlwaysOnTop(state.pet.alwaysOnTop,'floating');resizePet(petExpanded);broadcast(state);return state;
  });
@@ -88,7 +104,7 @@ app.whenReady().then(async()=>{
   broadcast(state);return updated;
  });
  ipcMain.handle('message:restore',(_,id)=>{const message=store.get().history.find(m=>m.id===id);if(!message)throw new Error('历史消息不存在');deliver(message);return message;});
- ipcMain.handle('effect:preview',(_,input)=>{const message=messages.preview(input);deliver(message);return message;});
+ ipcMain.handle('effect:preview',(_,input)=>{assertEditionContact(contactSchema.parse(input),edition);const message=messages.preview(input);deliver(message);return message;});
  ipcMain.handle('interaction:record',async(_,input)=>{const row=await interactions.record(input);broadcast(store.get());return row;});
  ipcMain.handle('interaction:clear',async()=>{const state=await interactions.clear();broadcast(state);return state;});
  ipcMain.handle('pet:expanded',(event,input)=>{if(event.sender.id!==pet?.webContents.id)throw new Error('仅桌宠窗口可调整显示尺寸');resizePet(z.boolean().parse(input));});
@@ -107,7 +123,8 @@ app.whenReady().then(async()=>{
  ipcMain.handle('ai:key-status',()=>credentials.has());
  ipcMain.handle('pet:hide',()=>{openPanel();pet?.hide();});ipcMain.handle('pet:show',()=>pet?.show());
  ipcMain.handle('panel:open',openPanel);ipcMain.handle('app:quit',()=>app.quit());
- openPanel();
+ initialized=true;openPanel();
 });
-app.on('activate',()=>{if(app.isReady())openPanel();});
+app.on('second-instance',()=>{if(initialized&&app.isReady()){openPanel();pet?.show();}});
+app.on('activate',()=>{if(primary&&initialized&&app.isReady())openPanel();});
 app.on('window-all-closed',()=>app.quit());

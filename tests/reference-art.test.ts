@@ -2,7 +2,8 @@ import {it,expect} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {personaIds,palaceIds} from '../src/lib/model';
 import {referenceAnimation,referenceArt} from '../src/lib/reference-art';
-it.each([...personaIds,...palaceIds])('%s 加载本地素材且完整适配显示区域',id=>{
+const edition=JSON.parse(readFileSync('edition.json','utf8')).id;
+it.each(edition==='palace'?palaceIds:personaIds)('%s 加载本地素材且完整适配显示区域',id=>{
  const animation=referenceAnimation(id,'./'),asset=animation.assets[0];
  expect(asset.u).toBe('./'+(id==='leader'?'references/':'characters/'));
  const [width,height]=referenceArt[id].size,[x,y,bw,bh]=referenceArt[id].bounds;

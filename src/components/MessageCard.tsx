@@ -5,6 +5,7 @@ import {interactionLabels,interactionLine,todayCounts} from '../lib/interactions
 import {playInteractionSound,stopInteractionSound} from '../lib/interaction-audio';
 import {useLocalDay} from '../hooks/useLocalDay';
 import {InteractionEffect,InteractionIcon} from './InteractionEffect';
+import {categoryLabel} from '../lib/editions';
 export function MessageCard({message,state,onClose,onIgnore,onInteraction}:{message:Message;state:State;onClose?:()=>void;onIgnore?:()=>void;onInteraction?:(kind:InteractionKind)=>void}){
  const [original,setOriginal]=useState(false),[ignored,setIgnored]=useState(false);
  const [reaction,setReaction]=useState<{kind:InteractionKind;key:number}|null>(null),[lastKind,setLastKind]=useState<InteractionKind|null>(null),[interactionError,setInteractionError]=useState(''),[soundError,setSoundError]=useState('');
@@ -26,7 +27,7 @@ export function MessageCard({message,state,onClose,onIgnore,onInteraction}:{mess
  if(ignored)return <article className="ignored-card"><span>已忽略 · {message.contact.name}</span><button onClick={()=>{setIgnored(false);setOriginal(false)}}>重新查看</button></article>;
  return <article className={`message-card card-${effect.cardSkin}`} aria-label="消息摘要">
   <div className="card-content" ref={content}>
-  <div className="card-top"><span>{message.preview?'效果预览 · 不记录历史':`来自 ${message.contact.name}`}</span><b>{message.contact.category}</b></div>
+  <div className="card-top"><span>{message.preview?'效果预览 · 不记录历史':`来自 ${message.contact.name}`}</span><b>{categoryLabel(message.contact.category,state.pet.theme)}</b></div>
   <h3 className="catchphrase">{effect.line}</h3>
   <small>{message.summary.source} · {message.summary.source==='本地规则摘要'?'未调用 AI':'请核对原文'}</small>
   {message.summary.warning&&<p className="summary-warning">{message.summary.warning}</p>}
