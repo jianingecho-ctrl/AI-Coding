@@ -15,7 +15,7 @@ it('同一联系人不同消息和连续点击累加，其他联系人与互动�
  const service=new InteractionService(store,()=>new Date(2026,9,13,12));
  await Promise.all(Array.from({length:12},(_,i)=>service.record({messageId:i%2?a.id:b.id,kind:'elbow'})));
  await service.record({messageId:a.id,kind:'slap'});await service.record({messageId:c.id,kind:'heart'});
- expect(todayCounts(store.get().interactions,'bigSilly','2026-10-13')).toEqual({elbow:12,slap:1,burn:0,heart:0});expect(todayCounts(store.get().interactions,'boss','2026-10-13').heart).toBe(1);
+ expect(todayCounts(store.get().interactions,'bigSilly','2026-10-13')).toEqual({elbow:12,slap:1,burn:0,heart:0,marry:0,kick:0});expect(todayCounts(store.get().interactions,'boss','2026-10-13').heart).toBe(1);
 });
 it('跨本地午夜开始新一天，重启保留前一日数据',async()=>{
  const {store,pipeline,file}=await setup(),m=await pipeline.receive({source:'mock',senderId:'bigSilly',text:'测试'});let now=new Date(2026,9,13,23,59,59);
@@ -25,7 +25,7 @@ it('跨本地午夜开始新一天，重启保留前一日数据',async()=>{
 it('同名联系人按 ID 分开，改名后仍累加，删除联系人后历史消息仍可互动',async()=>{
  const {store,pipeline}=await setup();await store.update(s=>({...s,contacts:[{id:'one',name:'小王',category:'老实之人'},{id:'two',name:'小王',category:'厌世之人'}]}));const a=await pipeline.receive({source:'mock',senderId:'one',text:'甲'}),b=await pipeline.receive({source:'mock',senderId:'two',text:'乙'}),service=new InteractionService(store);
  await service.record({messageId:a.id,kind:'slap'});await service.record({messageId:b.id,kind:'slap'});await store.update(s=>({...s,contacts:s.contacts.filter(c=>c.id==='one').map(c=>({...c,name:'王同学'}))}));await service.record({messageId:a.id,kind:'slap'});await service.record({messageId:b.id,kind:'heart'});
- expect(store.get().interactions.find(r=>r.contactId==='one')).toMatchObject({contactName:'王同学',counts:{slap:2}});expect(store.get().interactions.find(r=>r.contactId==='two')).toMatchObject({counts:{slap:1,heart:1}});
+ expect(store.get().interactions.find(r=>r.contactId==='one')).toMatchObject({contactName:'王同学',counts:{slap:2}});expect(store.get().interactions.find(r=>r.contactId==='two')).toMatchObject({counts:{slap:1,heart:1,marry:0,kick:0}});
 });
 it('预览、已清除消息和非法互动不能产生计数',async()=>{
  const {store,pipeline}=await setup(),service=new InteractionService(store),preview=pipeline.preview(store.get().contacts[0]);
@@ -38,6 +38,6 @@ it('清空消息历史与清空互动统计独立',async()=>{
 });
 it('计数时清理超过 90 天的统计，保留范围内各日记录',async()=>{
  const {store,pipeline}=await setup(),m=await pipeline.receive({source:'mock',senderId:'boss',text:'测试'});
- await store.update(s=>({...s,interactions:['2026-07-15','2026-07-16','2026-10-12'].map(day=>({day,contactId:'boss',contactName:'王经理',counts:{...emptyCounts(),heart:2}}))}));
+ await store.update(s=>({...s,interactions:['2026-07-15','2026-07-16','2026-10-12'].map(day=>({day,contactId:'boss',contactName:'王经理',counts:{...emptyCounts(),heart:2,marry:0,kick:0}}))}));
  await new InteractionService(store,()=>new Date(2026,9,13,12)).record({messageId:m.id,kind:'heart'});expect(store.get().interactions.map(r=>r.day)).toEqual(['2026-10-13','2026-10-12','2026-07-16']);
 });

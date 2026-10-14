@@ -1,6 +1,6 @@
 import {useEffect, useState, useRef, type CSSProperties} from 'react';
 import {
-  categories, defaultState, type State, type Message, type Contact, type Category, type CharacterSkin, type CharacterId,type InteractionKind,type AppInfo,
+  categories, defaultState, type State, type Message, type Contact, type Category, type CharacterSkin, type CharacterId,type InteractionKind,type AppInfo,type MessageQueueStatus,
 } from './lib/model';
 import {
   entryLabels, cardSkins, characterSkins, characterRoster, characterLabels, hasPersonalEffects, isKneeling, messageEffects, resolveEffects,
@@ -21,6 +21,7 @@ import {palaceRoster} from './lib/palace';
 import {categoryLabel,editionCardSkins,editionSkins} from './lib/editions';
 import {NotificationPanel} from './components/NotificationPanel';
 import './notifications.css';
+import {WeddingMusicSettings} from './components/WeddingMusicSettings';
 
 export function App() {
   const [state, setState] = useState<State>(structuredClone(defaultState));
@@ -55,16 +56,19 @@ function Pet({state, error}: {state: State; error: string}) {
   const [dismissed,setDismissed]=useState<Message|null>(null);
   const [reaction,setReaction]=useState<{kind:InteractionKind;key:number}|null>(null);
   const [entry, setEntry] = useState(0);
+  const [queue,setQueue]=useState<MessageQueueStatus>({activeId:null,pending:[]});
+  useEffect(()=>{let active=true;const off=window.judge.onMessageQueue(q=>{if(active)setQueue(q)});void window.judge.getMessageQueue().then(q=>{if(active)setQueue(q)});return()=>{active=false;off()}},[]);
   useEffect(() => window.judge?.onMessage(m => {
     setMessage(m);setDismissed(null);setReaction(null);
     setEntry(v => v + 1);
     setAction(messageEffects(m).action);
   }), []);
-  useEffect(()=>window.judge?.onMessageCleared(()=>{setMessage(null);setDismissed(null);setAction('idle');setReaction(null);setEntry(v=>v+1)}),[]);
+  useEffect(()=>window.judge?.onMessageCleared(()=>{setMessage(null);setAction('idle');setReaction(null);setEntry(v=>v+1)}),[]);
   useEffect(()=>{if(!window.judge)return;void window.judge.setPetExpanded(Boolean(message)).catch(console.error)},[Boolean(message)]);
-  useEffect(()=>{if(!reaction)return;const timer=setTimeout(()=>setReaction(null),1200);return()=>clearTimeout(timer)},[reaction]);
+  useEffect(()=>{if(!reaction)return;const timer=setTimeout(()=>setReaction(null),reaction.kind==='marry'?10500:reaction.kind==='kick'?2500:1200);return()=>clearTimeout(timer)},[reaction]);
   const effect = message ? messageEffects(message) : null;
   const character = effect?.character ?? state.pet.character;
+  const canRestore=Boolean(dismissed&&!dismissed.preview&&state.history.some(m=>m.id===dismissed.id));
   return <main className="pet-stage" data-theme={state.pet.theme} style={{'--pet-scale':state.pet.scale} as CSSProperties}>
     <div className="pet-toolbar">
       <span className="drag-handle" title="按住拖动窗口">⠿ 拖动小判官</span>
@@ -73,16 +77,18 @@ function Pet({state, error}: {state: State; error: string}) {
       <button title="退出应用" onClick={() => window.judge.quit()}>退出</button>
     </div>
     {error && <p className="error">{error}</p>}
+    {queue.pending.length>0&&<div className="queue-chip" role="status">待展示 {queue.pending.length} 条 · 下一位：{queue.pending[0].name}（{queue.pending[0].priority}）</div>}
     <div key={entry} style={{'--entry-duration':(effect?.duration??1.2)+'s'} as CSSProperties} className={'pet-scene ' + (effect ? 'entry-' + effect.entry : '') + (effect?.entry==='slide' && isKneeling(effect.action) ? ' slide-kneel' : '')}>
       {effect && <SceneEffects gag={effect.gag} theme={effect.theme}/>}
       {message && <MessageCard key={message.id} state={state} message={state.history.find(m=>m.id===message.id)??message}
-        onClose={() => {setDismissed(message);setMessage(null);setAction('idle')}}
-        onIgnore={() => {setDismissed(message);setMessage(null);setAction('idle')}}
+        onClose={() => {setDismissed(message);void window.judge.advanceMessage(message.id)}}
+        onIgnore={() => {setDismissed(message);void window.judge.advanceMessage(message.id)}}
+        onHold={hold=>{void window.judge.holdMessage(message.id,hold)}}
         onInteraction={kind=>setReaction(r=>({kind,key:(r?.key??0)+1}))}/>}
-      {!message&&!dismissed && <div className="idle-bubble">
+      {!message&&!canRestore && <div className="idle-bubble">
         {state.pet.theme==='palace'?'本宫待命，摸鱼随缘。':action === 'fish' ? '带薪摸鱼，也是努力。' : action === 'yawn' ? '不是我困，是班太长。' : '打工待命，摸鱼在线。'}
       </div>}
-      {dismissed&&!message&&<button className="restore-chip" onClick={()=>{setMessage(dismissed);setAction('stand');setDismissed(null)}}>重新查看 · {dismissed.contact.name}</button>}
+      {dismissed&&!message&&canRestore&&<button className="restore-chip" onClick={()=>{void window.judge.restoreMessage(dismissed.id)}}>重新查看 · {dismissed.contact.name}</button>}
       <div key={reaction?.key??0} className={"pet-drag "+(reaction?'reaction-'+reaction.kind:'')} title="按住人物拖动窗口">
         <Character character={character} action={action} name={state.pet.name} color={state.pet.color} skin={effect?.characterSkin ?? state.pet.skin} duration={effect?.duration} assetId={effect?.assetId ?? (!message?state.pet.assetId:null)}/>
         <span className="pet-name">{state.pet.name} · {characterLabels[character]}</span>
@@ -248,6 +254,7 @@ function Panel({appInfo,state, ready, error, setError}: {
       {tab==='互动统计'&&<InteractionStats state={state} busy={busy} onClear={()=>{if(confirm('确定清空全部本地互动统计（包含之前日期）？消息历史会保留。'))void execute(()=>window.judge.clearInteractions(),'互动统计已清空。')}}/>}
 
       {tab === '人物设置' && <>
+        <WeddingMusicSettings state={state}/>
         <PetPreferences pet={state.pet} busy={!ready||busy} onSave={preferences=>void execute(()=>save(state.contacts,{...state.pet,...preferences}),'尺寸与音效已保存。')}/>
         <div className="settings-title"><div><h3>{palace?'请一位宫廷人物，陪你批阅差事。':'选个待机角色，给每个人安排一张脸。'}</h3><p className="description">{palace?'本版只提供七位原创 Q 版宫廷人物。':'本版提供海洋人物与旧版骆驼。'}这里选择没有消息时的默认角色；来消息时使用联系人的角色，关闭卡片后恢复待机角色。联系人个人设置优先。</p></div></div>
         <div className="character-gallery" role="group" aria-label="七类消息人物">{roster.map(c =>
@@ -278,7 +285,7 @@ function Panel({appInfo,state, ready, error, setError}: {
           <button className="primary" disabled={!ready || busy}>保存人物设置</button>
         </form>
         <div className="card-skin-samples">{cards.map(s => <div key={s.id} className={'preview-card card-' + s.id}><small>消息卡片皮肤</small><p>{s.name}</p></div>)}</div>
-        <p className="description">拖动人物或顶部拖动区移动窗口。消息持续显示，直到关闭或下一条消息到来。关闭控制台不会退出桌宠。</p>
+        <p className="description">拖动人物或顶部拖动区移动窗口。通知按联系人优先级展示，关闭卡片后继续显示下一条；回复或互动期间暂停插队。关闭控制台不会退出桌宠。</p>
         <section className="asset-library"><h3>自定义人物素材</h3><p className="description">上传 PNG / JPG / WebP 静态图，GIF 动画，或一次选择多张图片作为序列帧（按文件名数字排序）。素材复制到本版，可在每个联系人或待机设置中选择。静态图片不会自动生成动作。</p>
         <button disabled={!ready||busy} onClick={()=>void execute(()=>window.judge.importAsset(),'素材选择已完成，上传成功的素材显示在下方。')}>上传图片 / GIF / 序列帧</button>
         <div className="asset-grid">{state.assets.map(a=><div className="asset-item" key={a.id}><Character character={palace?'palace_zhenhuan':'npc'} assetId={a.id}/><strong>{a.name}</strong><small>{a.kind==='sequence'?'序列帧 · '+a.files.length+' 帧':a.kind==='gif'?'GIF 动画':'静态图片'}</small></div>)}</div></section>

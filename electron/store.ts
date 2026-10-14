@@ -6,7 +6,10 @@ export class Store {
   private queue:Promise<unknown>=Promise.resolve();
   constructor(private file:string,initialState:State=defaultState,private normalize:(state:State)=>State=s=>s){this.state=structuredClone(initialState);}
   async load(){
-    try{this.state=this.normalize(stateSchema.parse(JSON.parse(await fs.readFile(this.file,'utf8'))));}
+    try{const saved=JSON.parse(await fs.readFile(this.file,'utf8'));
+      // 旧版默认人工确认；本次升级按用户要求启用自动进场一次，之后尊重用户开关。
+      if(saved.notifications&&saved.notifications.deliveryModeVersion!==2)saved.notifications={...saved.notifications,autoDeliver:true,deliveryModeVersion:2};
+      this.state=this.normalize(stateSchema.parse(saved));}
     catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT'){
       // 损坏文件保留供用户恢复，绝不静默覆盖。
       await fs.rename(this.file,`${this.file}.invalid-${Date.now()}`);

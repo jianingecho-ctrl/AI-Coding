@@ -5,8 +5,9 @@ import {interactionLabels,interactionLine,todayCounts} from '../lib/interactions
 import {playInteractionSound,stopInteractionSound} from '../lib/interaction-audio';
 import {useLocalDay} from '../hooks/useLocalDay';
 import {InteractionEffect,InteractionIcon} from './InteractionEffect';
+import {contactPriority} from '../lib/message-priority';
 import {categoryLabel} from '../lib/editions';
-export function MessageCard({message,state,onClose,onIgnore,onInteraction}:{message:Message;state:State;onClose?:()=>void;onIgnore?:()=>void;onInteraction?:(kind:InteractionKind)=>void}){
+export function MessageCard({message,state,onClose,onIgnore,onInteraction,onHold}:{message:Message;state:State;onClose?:()=>void;onIgnore?:()=>void;onInteraction?:(kind:InteractionKind)=>void;onHold?:(hold:boolean)=>void}){
  const [original,setOriginal]=useState(false),[ignored,setIgnored]=useState(false);
  const [reaction,setReaction]=useState<{kind:InteractionKind;key:number}|null>(null),[lastKind,setLastKind]=useState<InteractionKind|null>(null),[interactionError,setInteractionError]=useState(''),[soundError,setSoundError]=useState('');
  const [composing,setComposing]=useState(false),[reply,setReply]=useState(''),[sending,setSending]=useState(false),[error,setError]=useState(''),[replies,setReplies]=useState(message.replies??[]);
@@ -18,18 +19,22 @@ export function MessageCard({message,state,onClose,onIgnore,onInteraction}:{mess
  const contactName=state.contacts.find(c=>c.id===message.contact.id)?.name??message.contact.name;
  useEffect(()=>{setReplies(message.replies??[])},[message.replies]);
  useEffect(()=>{if(original&&content.current&&originalContent.current){content.current.scrollTop+=originalContent.current.getBoundingClientRect().top-content.current.getBoundingClientRect().top;}},[original]);
- useEffect(()=>{if(!reaction)return;const timer=setTimeout(()=>setReaction(null),1200);return()=>clearTimeout(timer)},[reaction]);
+ useEffect(()=>{if(!reaction)return;const timer=setTimeout(()=>setReaction(null),reaction.kind==='marry'?10500:reaction.kind==='kick'?2500:1200);return()=>clearTimeout(timer)},[reaction]);
  useEffect(()=>{if(!state.pet.soundEnabled||!state.pet.soundVolume)stopInteractionSound();},[state.pet.soundEnabled,state.pet.soundVolume]);
+ useEffect(()=>{onHold?.(composing||Boolean(reaction))},[composing,Boolean(reaction)]);
+ useEffect(()=>()=>onHold?.(false),[]);
+ useEffect(()=>()=>stopInteractionSound(),[]);
  function interact(kind:InteractionKind){
   setReaction(r=>({kind,key:(r?.key??0)+1}));setInteractionError('');setSoundError('');onInteraction?.(kind);
   // 必须直接从用户点击启动音频；跨窗口同步统计不会重复播放声音或计数。
-  void playInteractionSound(kind,state.pet.soundEnabled,state.pet.soundVolume).catch(()=>setSoundError('音效暂不可用，请检查系统声音设置。'));
+  void playInteractionSound(kind,state.pet.soundEnabled,state.pet.soundVolume,kind==='marry'&&state.weddingMusic?()=>window.judge.getWeddingAudio():undefined).catch(()=>setSoundError(kind==='marry'&&state.weddingMusic?'本地音乐无法播放，请重新导入可播放的 MP3 / WAV 或恢复原创音效。':'音效暂不可用，请检查系统声音设置。'));
   if(!message.preview){setLastKind(kind);void window.judge.recordInteraction({messageId:message.id,kind}).catch(e=>setInteractionError('计数未保存：'+String(e)));}
  }
  if(ignored)return <article className="ignored-card"><span>已忽略 · {message.contact.name}</span><button onClick={()=>{setIgnored(false);setOriginal(false)}}>重新查看</button></article>;
  return <article className={`message-card card-${effect.cardSkin}`} aria-label="消息摘要">
   <div className="card-content" ref={content}>
   <div className="card-top"><span>{message.preview?'效果预览 · 不记录历史':`来自 ${message.contact.name}`}</span><b>{categoryLabel(message.contact.category,state.pet.theme)}</b></div>
+  <small className="message-priority" data-priority={contactPriority(message.contact)}>收到消息优先级：{contactPriority(message.contact)}</small>
   <h3 className="catchphrase">{effect.line}</h3>
   {notification&&<small className="notification-source">{message.notification?.fixture?'通知验收夹具 · 未读取屏幕':'屏幕通知识别'} · {message.notification?.confirmedByUser?'人工确认':'自动匹配'}{message.notification?.group?' · 群：'+message.notification.group:''}</small>}
   <small>{message.summary.source} · {message.summary.source==='本地规则摘要'?'未调用 AI':'请核对原文'}</small>

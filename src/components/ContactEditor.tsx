@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {categories,entryIds,gagIds,personalEffectSchema,type Contact,type PersonalEffect,type State,type Asset} from '../lib/model';
+import {messagePriorities,categories,entryIds,gagIds,personalEffectSchema,type Contact,type PersonalEffect,type State,type Asset} from '../lib/model';
 import {editionCharacters,editionSkins,editionCardSkins,categoryLabel} from '../lib/editions';
 import {characterLabels,entryLabels,gagLabels} from '../lib/effects';
 import {EffectPreview} from './EffectPreview';
@@ -9,6 +9,7 @@ export function ContactEditor({contact,pet,assets,busy,onSave,onPreview}:{contac
  function update<K extends keyof PersonalEffect>(key:K,value:PersonalEffect[K]){setDraft(d=>({...d,effects:{...d.effects!,[key]:value}}));}
  return <section className="contact-editor" aria-label="个性效果编辑器"><div className="editor-heading"><div><span className="eyebrow">个人配置优先于类型默认</span><h3>{contact.name}的专属桌面效果</h3></div><span className="pill">实时预览</span></div>
  <div className="editor-layout"><form onSubmit={e=>{e.preventDefault();onSave({...draft,notificationNames:[...new Set((draft.notificationNames??[]).map(name=>name.trim()).filter(Boolean))]})}}>
+ <label>收到消息的优先级<select aria-label="消息优先级" value={draft.messagePriority??'auto'} onChange={e=>setDraft(d=>({...d,messagePriority:e.target.value==='auto'?undefined:e.target.value as Contact['messagePriority']}))}><option value="auto">类别默认（领导最高，其他普通）</option>{messagePriorities.map(p=><option key={p}>{p}</option>)}</select><small>优先级更高的消息先出场；其他消息排队，关闭卡片后继续展示。回复或互动期间暂停插队。</small></label>
  <label>显示姓名<input aria-label="显示姓名" value={draft.name} onChange={e=>setDraft(d=>({...d,name:e.target.value}))} maxLength={40} required/></label>
  <label>通知姓名别名（每行一个）<textarea aria-label="通知姓名别名" rows={2} value={(draft.notificationNames??[]).join('\n')} onChange={e=>setDraft(d=>({...d,notificationNames:e.target.value.split('\n')}))} placeholder="例如：小陈 Chen"/><small>保存时按行去空白。匹配通知中的发送人，不匹配群名；同名需人工确认，最多 10 个别名。</small></label>
  <label>人物类型<select aria-label="人物类型" value={draft.category} onChange={e=>setDraft(d=>({...d,category:e.target.value as Contact['category']}))}>{!categories.includes(draft.category as typeof categories[number])&&<option value={draft.category}>{categoryLabel(draft.category,pet.theme)}</option>}{categories.map(c=><option key={c} value={c}>{categoryLabel(c,pet.theme)}</option>)}</select></label>
