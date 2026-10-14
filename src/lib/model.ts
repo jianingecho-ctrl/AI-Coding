@@ -60,7 +60,7 @@ export interface AppInfo{edition:Theme;name:string;label:string;version:string;a
 export const defaultState:State={contacts:categories.map((category,i)=>({id:['boss','honest','bored','laidback','silly','bigSilly','npc'][i],name:['王经理','老实小陈','厌世小周','躺平搭子','小迷糊','甩锅达人','路过同事'][i],category})),history:[],pet:{name:'小判官',color:'薄荷绿',skin:'desert',character:'npc',assetId:null,alwaysOnTop:true,scale:.6,soundEnabled:true,soundVolume:.45,theme:'ocean'},ai:{enabled:false,provider:'ollama',model:'qwen2.5:3b',baseUrl:'https://api.openai.com/v1'},assets:[],interactions:[],notifications:structuredClone(defaultNotificationSettings)};
 export interface Bridge{
  notificationStatus():Promise<NotificationStatus>;saveNotificationSettings(settings:NotificationSettings):Promise<State>;
- captureNotification():Promise<NotificationStatus>;startNotifications():Promise<NotificationStatus>;stopNotifications():Promise<NotificationStatus>;
+ captureNotification(delaySeconds?:number):Promise<NotificationStatus>;startNotifications():Promise<NotificationStatus>;stopNotifications():Promise<NotificationStatus>;
  confirmNotification(input:{draftId:string;contactId:string;text:string}):Promise<Message>;dismissNotification(id:string):Promise<NotificationStatus>;clearNotificationDrafts():Promise<NotificationStatus>;
  onNotifications(callback:(status:NotificationStatus)=>void):()=>void;copyText(text:string):Promise<void>;
  getAppInfo():Promise<AppInfo>;

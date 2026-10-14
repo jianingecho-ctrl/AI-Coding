@@ -25,7 +25,7 @@ for(const [edition,identity] of Object.entries(names)){
  delete pkg.scripts.sources;if(edition==='palace')pkg.scripts['test:desktop']='npm run build && node tests/palace-desktop.cjs';
  const lock=JSON.parse(await readFile(path.join(destination,'package-lock.json'),'utf8'));lock.name=identity.name;lock.packages[''].name=identity.name;
  await writeFile(path.join(destination,'edition.json'),JSON.stringify({id:edition})+'\n');await writeFile(path.join(destination,'package.json'),JSON.stringify(pkg,null,2)+'\n');await writeFile(path.join(destination,'package-lock.json'),JSON.stringify(lock,null,2)+'\n');
- await writeFile(path.join(destination,'README.md'),`# ${identity.productName} · ${pkg.version}\n\n本文件夹是独立${edition==='palace'?'甄嬛传':'海洋'}版，直接双击「${identity.launcher}」，或依次执行 npm ci、npm run build、npm start。\n\n本版人物、联系人、消息、统计、素材与 AI 密钥使用独立目录；没有主题切换，也不会影响另一版。0.9.1 支持本机识别可见飞书通知，默认人工确认，回复可复制后手动发送，真实通知不调用外部 AI。Mac 首次构建需要 Apple 开发工具和 macOS 15.2+ SDK。详细步骤见 [飞书通知使用教程](docs/飞书通知使用教程.md) 和 [独立版使用指南](docs/独立版使用指南.md)。\n\n在 Mac 上运行 npm run pack:mac 会生成本版专用 DMG/ZIP，应用名称与 Bundle ID 独立，可与另一版一起安装。\n`);
+ await writeFile(path.join(destination,'README.md'),`# ${identity.productName} · ${pkg.version}\n\n本文件夹是独立${edition==='palace'?'甄嬛传':'海洋'}版，直接双击「${identity.launcher}」，或依次执行 npm ci、npm run build、npm start。\n\n本版人物、联系人、消息、统计、素材与 AI 密钥使用独立目录；没有主题切换，也不会影响另一版。0.9.2 支持本机识别可见飞书通知，默认人工确认，回复可复制后手动发送，真实通知不调用外部 AI。Mac 首次构建需要 Apple 开发工具和 macOS 15.2+ SDK。详细步骤见 [飞书通知使用教程](docs/飞书通知使用教程.md) 和 [独立版使用指南](docs/独立版使用指南.md)。\n\n在 Mac 上运行 npm run pack:mac 会生成本版专用 DMG/ZIP，应用名称与 Bundle ID 独立，可与另一版一起安装。\n`);
  for(const launcher of ['启动职场小判官.command',identity.launcher])await chmod(path.join(destination,launcher),0o755);
  console.log(identity.productName+'源码目录：'+destination);
 }

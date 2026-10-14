@@ -12,3 +12,10 @@
 .notification-source { display:block;margin:8px 0;color:#805d32;font-size:11px; }
 .theme-palace .notification-controls,.theme-palace .notification-draft { background:#fff8e8de;border-color:#ddbe8e; }
 .theme-palace .notification-status,.theme-palace .notification-draft details { color:#775335; }
+.capture-result { margin-top:16px;padding:15px;border:1px solid #91c4dc;border-radius:14px;background:#ffffffb5; font-size:12px;line-height:1.7; }
+.capture-result details { margin-top:10px; }
+.capture-result summary { cursor:pointer;font-weight:700; }
+.capture-result li { white-space:pre-wrap;overflow-wrap:anywhere; }
+.capture-result small { color:#53748a; }
+.theme-palace .capture-result { border-color:#ddbe8e;background:#fffcf2c9; }
+.theme-palace .capture-result small { color:#99754b; }
