@@ -6,3 +6,5 @@ test-results/
 *.log
 .DS_Store
 .edition-sources/
+native/bin/
+native/.build/

@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {notificationSettingsSchema,defaultNotificationSettings,notificationMetaSchema,type NotificationSettings,type NotificationStatus} from './notifications';
 export const categories=['领导—支配我之人','老实之人','厌世之人','躺平之人','小傻之人','大傻之人','NPC同事'] as const;
 export const legacyCategories=['领导','喜欢的同事','普通同事','讨厌的人','特别讨厌的人'] as const;
 export type Category=typeof categories[number]|typeof legacyCategories[number];
@@ -32,11 +33,11 @@ export const resolvedEffectSchema=z.object({
  theme:z.enum(themeIds).default('ocean'),
 });
 export type ResolvedEffect=z.infer<typeof resolvedEffectSchema>;
-export const contactSchema=z.object({id:z.string().min(1).max(100),name:z.string().trim().min(1).max(40),category:z.enum([...categories,...legacyCategories]),effects:personalEffectSchema.optional()});
+export const contactSchema=z.object({id:z.string().min(1).max(100),name:z.string().trim().min(1).max(40),category:z.enum([...categories,...legacyCategories]),effects:personalEffectSchema.optional(),notificationNames:z.array(z.string().trim().min(1).max(40)).max(10).optional()});
 export type Contact=z.infer<typeof contactSchema>;
 export const summarySchema=z.object({core:z.string().max(500),todos:z.array(z.string().max(500)).max(20),deadline:z.string().max(200),reply:z.string().max(200),urgency:z.enum(['低','中','高','未明确']).default('未明确'),source:z.enum(['本地规则摘要','本地 AI 摘要','在线 AI 摘要']),warning:z.string().optional()});
 export type Summary=z.infer<typeof summarySchema>;
-export const messageSchema=z.object({id:z.string(),contact:contactSchema,text:z.string().min(1).max(5000),createdAt:z.string(),summary:summarySchema,source:z.literal('mock').optional(),effect:resolvedEffectSchema.optional(),preview:z.boolean().optional(),replies:z.array(z.object({id:z.string(),text:z.string().trim().min(1).max(2000),createdAt:z.string()})).max(50).optional()});
+export const messageSchema=z.object({id:z.string(),contact:contactSchema,text:z.string().min(1).max(5000),createdAt:z.string(),summary:summarySchema,source:z.enum(['mock','notification']).optional(),notification:notificationMetaSchema.optional(),effect:resolvedEffectSchema.optional(),preview:z.boolean().optional(),replies:z.array(z.object({id:z.string(),text:z.string().trim().min(1).max(2000),createdAt:z.string()})).max(50).optional()});
 export type Message=z.infer<typeof messageSchema>;
 export const aiSchema=z.object({enabled:z.boolean(),provider:z.enum(['ollama','openai-compatible']).default('ollama'),model:z.string().trim().min(1).max(100).regex(/^[a-zA-Z0-9_.:/-]+$/),baseUrl:z.string().max(300).default('https://api.openai.com/v1')});
 export const assetSchema=z.object({id:z.string().uuid(),name:z.string().max(120),kind:z.enum(['image','gif','sequence']),files:z.array(z.string().regex(/^\d{3}\.(png|jpg|jpeg|webp|gif)$/)).min(1).max(60),createdAt:z.string()});
@@ -52,11 +53,16 @@ export const stateSchema=z.object({
  pet:z.object({name:z.string().trim().min(1).max(20),color:z.enum(['薄荷绿','蜜桃粉','奶油黄']),skin:z.enum(characterSkinIds).default('desert'),character:z.enum(characterIds).default('npc'),assetId:z.string().uuid().nullable().default(null),alwaysOnTop:z.boolean().default(true),scale:z.number().min(.45).max(1).default(.6),soundEnabled:z.boolean().default(true),soundVolume:z.number().min(0).max(1).default(.45),theme:z.enum(themeIds).default('ocean')}),
  ai:aiSchema.default({enabled:false,provider:'ollama',model:'qwen2.5:3b',baseUrl:'https://api.openai.com/v1'}),assets:z.array(assetSchema).max(100).default([]),
  interactions:z.array(dailyInteractionSchema).max(9000).default([]),
+ notifications:notificationSettingsSchema.default(defaultNotificationSettings),
 });
 export type State=z.infer<typeof stateSchema>;
 export interface AppInfo{edition:Theme;name:string;label:string;version:string;appId:string;dataDirectory:string;migratedLegacy:boolean}
-export const defaultState:State={contacts:categories.map((category,i)=>({id:['boss','honest','bored','laidback','silly','bigSilly','npc'][i],name:['王经理','老实小陈','厌世小周','躺平搭子','小迷糊','甩锅达人','路过同事'][i],category})),history:[],pet:{name:'小判官',color:'薄荷绿',skin:'desert',character:'npc',assetId:null,alwaysOnTop:true,scale:.6,soundEnabled:true,soundVolume:.45,theme:'ocean'},ai:{enabled:false,provider:'ollama',model:'qwen2.5:3b',baseUrl:'https://api.openai.com/v1'},assets:[],interactions:[]};
+export const defaultState:State={contacts:categories.map((category,i)=>({id:['boss','honest','bored','laidback','silly','bigSilly','npc'][i],name:['王经理','老实小陈','厌世小周','躺平搭子','小迷糊','甩锅达人','路过同事'][i],category})),history:[],pet:{name:'小判官',color:'薄荷绿',skin:'desert',character:'npc',assetId:null,alwaysOnTop:true,scale:.6,soundEnabled:true,soundVolume:.45,theme:'ocean'},ai:{enabled:false,provider:'ollama',model:'qwen2.5:3b',baseUrl:'https://api.openai.com/v1'},assets:[],interactions:[],notifications:structuredClone(defaultNotificationSettings)};
 export interface Bridge{
+ notificationStatus():Promise<NotificationStatus>;saveNotificationSettings(settings:NotificationSettings):Promise<State>;
+ captureNotification():Promise<NotificationStatus>;startNotifications():Promise<NotificationStatus>;stopNotifications():Promise<NotificationStatus>;
+ confirmNotification(input:{draftId:string;contactId:string;text:string}):Promise<Message>;dismissNotification(id:string):Promise<NotificationStatus>;clearNotificationDrafts():Promise<NotificationStatus>;
+ onNotifications(callback:(status:NotificationStatus)=>void):()=>void;copyText(text:string):Promise<void>;
  getAppInfo():Promise<AppInfo>;
  getState():Promise<State>;saveSettings(settings:Pick<State,'contacts'|'pet'>&{ai?:State['ai']}):Promise<State>;
  sendMessage(input:{contactId:string;text:string}):Promise<Message>;previewContact(contact:Contact):Promise<Message>;
