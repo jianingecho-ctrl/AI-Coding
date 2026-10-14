@@ -42,3 +42,13 @@ input[type=range] { padding:0;accent-color:#299ece;cursor:pointer; }
  .interaction-effect,.interaction-symbol svg,.mini-heart,.pet-drag[class*=reaction-] .character {animation:none !important;}
 }
 @media(max-width:900px) { .settings-sliders {grid-template-columns:1fr;} }
+.interaction-actions {grid-template-columns:repeat(3,minmax(0,1fr));}
+.message-priority {display:block;margin:5px 0;color:var(--card-text);font-weight:700;}
+.queue-chip {position:relative;z-index:10;padding:5px 10px;margin:0 8px;border-radius:12px;background:#edf8ffe8;font-size:11px;color:#255679;}
+.interaction-marry {animation:fun-heart 10.5s ease-out both;}
+.interaction-kick {animation:fun-elbow 2.5s ease-out both;}
+.pet-drag.reaction-marry .character {animation:wedding-sway 1.2s ease-in-out infinite;}
+.pet-drag.reaction-kick .character {animation:flying-kick 2.4s ease-in-out both;}
+@keyframes wedding-sway {0%,100%{transform:rotate(-5deg)}50%{transform:translateY(-8px) rotate(5deg)}}
+@keyframes flying-kick {0%{transform:none;opacity:1}12%{transform:translate(-20px,-10px) rotate(-15deg)}35%,62%{transform:translate(550px,-140px) rotate(300deg);opacity:0}75%{transform:translate(260px,0) rotate(15deg);opacity:0}85%{opacity:1}100%{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.pet-drag.reaction-kick .character,.pet-drag.reaction-marry .character{animation:none!important;}}

@@ -30,8 +30,17 @@ afterEach(async()=>{services.splice(0).forEach(service=>service.stop());vi.useRe
 it('名单姓名提示送入本机适配器，匹配精确的定位消息自动进场但未外发给 AI',async()=>{
  vi.useFakeTimers();const directory=await mkdtemp(path.join(tmpdir(),'judge-positioned-'));directories.push(directory);const store=new Store(path.join(directory,'state.json'));await store.load();await store.update(s=>({...s,contacts,notifications:{...s.notifications,intervalSeconds:2,autoDeliver:true},ai:{...s.ai,enabled:true}}));
  let current=captured(line('飞书',12,8),line('张琳l',66,42),line('已显示的内容',66,62));const capture=vi.fn<NotificationAdapter['capture']>(async()=>current),delivered=vi.fn(),ai=vi.fn(),key=vi.fn();const service=new NotificationService(store,new MessagePipeline(store,key,ai),{available:true,fixture:false,capture},()=>{},delivered);services.push(service);
- await service.start();expect(capture.mock.calls[0]?.[3]).toEqual(['张琳','王经理','张琳l']);
+ await service.start(false);expect(capture.mock.calls[0]?.[3]).toEqual(['张琳','王经理','张琳l']);
  current=captured(line('飞书',12,8),line('桌面测试.sql',250,28),line('张琳l',66,42),line('新测试通知，请回复',66,62),line('拖动小判官',65,170));await vi.advanceTimersByTimeAsync(2000);await vi.waitFor(()=>expect(delivered).toHaveBeenCalledOnce());expect(store.get().history[0]).toMatchObject({text:'新测试通知，请回复',effect:{character:'honest'}});expect(ai).not.toHaveBeenCalled();expect(key).not.toHaveBeenCalled();service.stop();
 });
 it('收窄窗口内姓名上方的飞书标题可辅助来源确认，前面的时钟不污染身份',()=>{const frame=captured(line('17:20',120,2),line('飞书',12,20),line('张琳l',66,60),line('测试正文',66,80));expect(parseNotifications(frame,contacts)[0].sourceMatched).toBe(true);expect(parseNotifications({...frame,context:'other-window'},contacts)[0].sourceMatched).toBe(false);});
 it('其他列、远处或低置信度的飞书字样不能赋予来源资格',()=>{for(const brand of [line('飞书',250,20),line('飞书',12,20,.3)]){const frame=captured(line('时钟',120,2),brand,line('张琳l',66,60),line('测试正文',66,80));expect(parseNotifications(frame,contacts)[0].sourceMatched).toBe(false);}});
+it('默认开始即可将当前可见且精确匹配的定位通知送达，包括低置信度姓名；重复不会再次进场',async()=>{
+ const directory=await mkdtemp(path.join(tmpdir(),'judge-visible-'));directories.push(directory);const store=new Store(path.join(directory,'state.json'));await store.update(s=>({...s,contacts}));
+ const current=captured(line('张琳l',66,42,.3),line('测试新消息',66,62,.8));const delivered=vi.fn(),service=new NotificationService(store,new MessagePipeline(store,async()=>''),{available:true,fixture:false,capture:async()=>current},()=>{},delivered);services.push(service);
+ await service.start();expect(delivered).toHaveBeenCalledOnce();expect(store.get().history[0].contact.id).toBe('lin');expect(service.get().lastResult).toMatchObject({baseline:false,delivered:1});service.stop();await service.once();expect(delivered).toHaveBeenCalledOnce();expect(service.get().duplicates).toBe(1);
+});
+it('识别一次自动送达，明确选择仅预览仍保留草稿且不触发人物',async()=>{
+ const directory=await mkdtemp(path.join(tmpdir(),'judge-once-'));directories.push(directory);const store=new Store(path.join(directory,'state.json'));await store.update(s=>({...s,contacts}));let body='预览';const delivered=vi.fn(),service=new NotificationService(store,new MessagePipeline(store,async()=>''),{available:true,fixture:false,capture:async()=>captured(line('张琳l',66,42),line(body,66,62))},()=>{},delivered);services.push(service);
+ await service.once(0,true);expect(delivered).not.toHaveBeenCalled();expect(service.get().drafts).toHaveLength(1);body='自动送达';await service.once();expect(delivered).toHaveBeenCalledOnce();expect(store.get().history[0].text).toBe(body);
+});

@@ -33,7 +33,9 @@ export const resolvedEffectSchema=z.object({
  theme:z.enum(themeIds).default('ocean'),
 });
 export type ResolvedEffect=z.infer<typeof resolvedEffectSchema>;
-export const contactSchema=z.object({id:z.string().min(1).max(100),name:z.string().trim().min(1).max(40),category:z.enum([...categories,...legacyCategories]),effects:personalEffectSchema.optional(),notificationNames:z.array(z.string().trim().min(1).max(40)).max(10).optional()});
+export const messagePriorities=['最高','高','普通','低'] as const;
+export type MessagePriority=typeof messagePriorities[number];
+export const contactSchema=z.object({messagePriority:z.enum(messagePriorities).optional(),id:z.string().min(1).max(100),name:z.string().trim().min(1).max(40),category:z.enum([...categories,...legacyCategories]),effects:personalEffectSchema.optional(),notificationNames:z.array(z.string().trim().min(1).max(40)).max(10).optional()});
 export type Contact=z.infer<typeof contactSchema>;
 export const summarySchema=z.object({core:z.string().max(500),todos:z.array(z.string().max(500)).max(20),deadline:z.string().max(200),reply:z.string().max(200),urgency:z.enum(['低','中','高','未明确']).default('未明确'),source:z.enum(['本地规则摘要','本地 AI 摘要','在线 AI 摘要']),warning:z.string().optional()});
 export type Summary=z.infer<typeof summarySchema>;
@@ -42,13 +44,17 @@ export type Message=z.infer<typeof messageSchema>;
 export const aiSchema=z.object({enabled:z.boolean(),provider:z.enum(['ollama','openai-compatible']).default('ollama'),model:z.string().trim().min(1).max(100).regex(/^[a-zA-Z0-9_.:/-]+$/),baseUrl:z.string().max(300).default('https://api.openai.com/v1')});
 export const assetSchema=z.object({id:z.string().uuid(),name:z.string().max(120),kind:z.enum(['image','gif','sequence']),files:z.array(z.string().regex(/^\d{3}\.(png|jpg|jpeg|webp|gif)$/)).min(1).max(60),createdAt:z.string()});
 export type Asset=z.infer<typeof assetSchema>;
-export const interactionKinds=['elbow','slap','burn','heart'] as const;
+export const interactionKinds=['elbow','slap','burn','heart','marry','kick'] as const;
 export type InteractionKind=typeof interactionKinds[number];
-export const interactionCountsSchema=z.object({elbow:z.number().int().min(0).max(1000000),slap:z.number().int().min(0).max(1000000),burn:z.number().int().min(0).max(1000000),heart:z.number().int().min(0).max(1000000)});
+export const interactionCountsSchema=z.object({marry:z.number().int().min(0).max(1000000).default(0),kick:z.number().int().min(0).max(1000000).default(0),elbow:z.number().int().min(0).max(1000000),slap:z.number().int().min(0).max(1000000),burn:z.number().int().min(0).max(1000000),heart:z.number().int().min(0).max(1000000)});
 export type InteractionCounts=z.infer<typeof interactionCountsSchema>;
 export const dailyInteractionSchema=z.object({day:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),contactId:z.string().min(1).max(100),contactName:z.string().min(1).max(40),counts:interactionCountsSchema});
 export type DailyInteraction=z.infer<typeof dailyInteractionSchema>;
+export const weddingMusicSchema=z.object({id:z.string().uuid(),name:z.string().max(120),extension:z.enum(['mp3','wav','m4a','ogg'])});
+export type WeddingMusic=z.infer<typeof weddingMusicSchema>;
+export interface MessageQueueStatus{activeId:string|null;pending:{id:string;name:string;priority:MessagePriority}[]}
 export const stateSchema=z.object({
+ weddingMusic:weddingMusicSchema.nullable().default(null),
  contacts:z.array(contactSchema).max(100),history:z.array(messageSchema).max(200),
  pet:z.object({name:z.string().trim().min(1).max(20),color:z.enum(['薄荷绿','蜜桃粉','奶油黄']),skin:z.enum(characterSkinIds).default('desert'),character:z.enum(characterIds).default('npc'),assetId:z.string().uuid().nullable().default(null),alwaysOnTop:z.boolean().default(true),scale:z.number().min(.45).max(1).default(.6),soundEnabled:z.boolean().default(true),soundVolume:z.number().min(0).max(1).default(.45),theme:z.enum(themeIds).default('ocean')}),
  ai:aiSchema.default({enabled:false,provider:'ollama',model:'qwen2.5:3b',baseUrl:'https://api.openai.com/v1'}),assets:z.array(assetSchema).max(100).default([]),
@@ -57,10 +63,12 @@ export const stateSchema=z.object({
 });
 export type State=z.infer<typeof stateSchema>;
 export interface AppInfo{edition:Theme;name:string;label:string;version:string;appId:string;dataDirectory:string;migratedLegacy:boolean}
-export const defaultState:State={contacts:categories.map((category,i)=>({id:['boss','honest','bored','laidback','silly','bigSilly','npc'][i],name:['王经理','老实小陈','厌世小周','躺平搭子','小迷糊','甩锅达人','路过同事'][i],category})),history:[],pet:{name:'小判官',color:'薄荷绿',skin:'desert',character:'npc',assetId:null,alwaysOnTop:true,scale:.6,soundEnabled:true,soundVolume:.45,theme:'ocean'},ai:{enabled:false,provider:'ollama',model:'qwen2.5:3b',baseUrl:'https://api.openai.com/v1'},assets:[],interactions:[],notifications:structuredClone(defaultNotificationSettings)};
+export const defaultState:State={weddingMusic:null,contacts:categories.map((category,i)=>({id:['boss','honest','bored','laidback','silly','bigSilly','npc'][i],name:['王经理','老实小陈','厌世小周','躺平搭子','小迷糊','甩锅达人','路过同事'][i],category})),history:[],pet:{name:'小判官',color:'薄荷绿',skin:'desert',character:'npc',assetId:null,alwaysOnTop:true,scale:.6,soundEnabled:true,soundVolume:.45,theme:'ocean'},ai:{enabled:false,provider:'ollama',model:'qwen2.5:3b',baseUrl:'https://api.openai.com/v1'},assets:[],interactions:[],notifications:structuredClone(defaultNotificationSettings)};
 export interface Bridge{
+ importWeddingMusic():Promise<State>;clearWeddingMusic():Promise<State>;getWeddingAudio():Promise<string|null>;
+ getMessageQueue():Promise<MessageQueueStatus>;onMessageQueue(callback:(status:MessageQueueStatus)=>void):()=>void;advanceMessage(id:string):Promise<void>;holdMessage(id:string,hold:boolean):Promise<void>;
  notificationStatus():Promise<NotificationStatus>;saveNotificationSettings(settings:NotificationSettings):Promise<State>;
- captureNotification(delaySeconds?:number):Promise<NotificationStatus>;startNotifications():Promise<NotificationStatus>;stopNotifications():Promise<NotificationStatus>;
+ captureNotification(delaySeconds?:number,previewOnly?:boolean):Promise<NotificationStatus>;startNotifications():Promise<NotificationStatus>;stopNotifications():Promise<NotificationStatus>;
  confirmNotification(input:{draftId:string;contactId:string;text:string}):Promise<Message>;dismissNotification(id:string):Promise<NotificationStatus>;clearNotificationDrafts():Promise<NotificationStatus>;
  onNotifications(callback:(status:NotificationStatus)=>void):()=>void;copyText(text:string):Promise<void>;
  getAppInfo():Promise<AppInfo>;

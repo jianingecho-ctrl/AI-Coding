@@ -13,6 +13,8 @@ import {InteractionService} from './interactions';
 import {petWindowSize,resizedPetBounds} from '../src/lib/pet-layout';
 import {editionDefinitions,editionDefaults,normalizeEditionState,assertEditionSettings,assertEditionContact} from '../src/lib/editions';
 import {parseEdition,editionDataRoot,migrateLegacyOcean} from './editions';
+import {MessageDisplayQueue} from './message-queue';
+import {WeddingMusicService} from './music';
 import {NotificationService} from './notifications';
 import {createNotificationAdapter} from './notification-adapter';
 import {notificationSettingsSchema} from '../src/lib/notifications';
@@ -35,6 +37,7 @@ let credentials:Credentials;
 let assetRoot:string;
 let interactions:InteractionService;
 let notifications:NotificationService;
+let displayQueue:MessageDisplayQueue;let music:WeddingMusicService;
 let petExpanded=false;
 let initialized=false;
 const devURL=process.env.VITE_DEV_SERVER_URL;
@@ -77,9 +80,12 @@ if(primary)app.whenReady().then(async()=>{
  credentials=new Credentials(path.join(app.getPath('userData'),'ai-key.enc'));
  messages=new MessagePipeline(store,()=>credentials.get());
  interactions=new InteractionService(store);
+ music=new WeddingMusicService(store,path.join(dataRoot,'audio'));
+ const clearPet=()=>{resizePet(false);for(const w of BrowserWindow.getAllWindows())w.webContents.send('message:clear');};
+ displayQueue=new MessageDisplayQueue(deliver,clearPet,status=>{for(const w of BrowserWindow.getAllWindows())w.webContents.send('queue:changed',status)});
  const notificationBinary=app.isPackaged?path.join(process.resourcesPath,'notification-tools','NotificationCapture-'+process.arch):path.join(__dirname,'../../native/bin','NotificationCapture-'+process.arch);
  const notificationAdapter=await createNotificationAdapter(notificationBinary,!app.isPackaged?process.env.JUDGE_NOTIFICATION_FIXTURE:undefined);
- notifications=new NotificationService(store,messages,notificationAdapter,status=>{for(const window of BrowserWindow.getAllWindows())window.webContents.send('notifications:changed',status)},message=>{broadcast(store.get());deliver(message)});
+ notifications=new NotificationService(store,messages,notificationAdapter,status=>{for(const window of BrowserWindow.getAllWindows())window.webContents.send('notifications:changed',status)},message=>{broadcast(store.get());displayQueue.push(message)});
  const area=screen.getPrimaryDisplay().workArea;
  const size=petWindowSize(store.get().pet.scale,false);
  pet=new BrowserWindow({...size,x:Math.max(area.x,area.x+area.width-size.width-20),y:Math.max(area.y,area.y+area.height-size.height-20),transparent:true,frame:false,alwaysOnTop:true,resizable:false,hasShadow:false,skipTaskbar:true,webPreferences:options()});
@@ -91,7 +97,7 @@ if(primary)app.whenReady().then(async()=>{
  const requirePanel=(event:Electron.IpcMainInvokeEvent)=>{if(event.sender.id!==panel?.webContents.id)throw new Error('请通过控制台操作通知识别。');};
  ipcMain.handle('notifications:status',()=>notifications.get());
  ipcMain.handle('notifications:save',async(event,input)=>{requirePanel(event);notifications.stop();const settings=notificationSettingsSchema.parse(input);const state=await store.update(s=>({...s,notifications:settings}));broadcast(state);return state;});
- ipcMain.handle('notifications:once',(event,delay)=>{requirePanel(event);return notifications.once(z.number().int().min(0).max(10).default(0).parse(delay));});
+ ipcMain.handle('notifications:once',(event,delay,preview)=>{requirePanel(event);return notifications.once(z.number().int().min(0).max(10).default(0).parse(delay),z.boolean().default(false).parse(preview));});
  ipcMain.handle('notifications:start',(event)=>{requirePanel(event);return notifications.start();});
  ipcMain.handle('notifications:stop',(event)=>{requirePanel(event);return notifications.stop();});
  ipcMain.handle('notifications:confirm',(event,input)=>{requirePanel(event);return notifications.confirm(z.object({draftId:z.string().uuid(),contactId:z.string().min(1).max(100),text:z.string().trim().min(1).max(5000)}).parse(input));});
@@ -107,7 +113,7 @@ if(primary)app.whenReady().then(async()=>{
  ipcMain.handle('message:send',async(_,input)=>{
   const data=z.object({contactId:z.string(),text:z.string()}).parse(input);
   const message=await messages.receive({source:'mock',senderId:data.contactId,text:data.text});
-  broadcast(store.get());deliver(message);return message;
+  broadcast(store.get());displayQueue.force(message);return message;
  });
  ipcMain.handle('message:reply',async(_,input)=>{
   const data=z.object({messageId:z.string(),text:z.string().trim().min(1).max(2000)}).parse(input);
@@ -120,14 +126,19 @@ if(primary)app.whenReady().then(async()=>{
   if(!updated)throw new Error('消息不存在；预览消息不能回复');
   broadcast(state);return updated;
  });
- ipcMain.handle('message:restore',(_,id)=>{const message=store.get().history.find(m=>m.id===id);if(!message)throw new Error('历史消息不存在');deliver(message);return message;});
- ipcMain.handle('effect:preview',(_,input)=>{assertEditionContact(contactSchema.parse(input),edition);const message=messages.preview(input);deliver(message);return message;});
+ ipcMain.handle('message:restore',(_,id)=>{const message=store.get().history.find(m=>m.id===id);if(!message)throw new Error('历史消息不存在');displayQueue.force(message);return message;});
+ ipcMain.handle('effect:preview',(_,input)=>{assertEditionContact(contactSchema.parse(input),edition);const message=messages.preview(input);displayQueue.force(message);return message;});
  ipcMain.handle('interaction:record',async(_,input)=>{const row=await interactions.record(input);broadcast(store.get());return row;});
  ipcMain.handle('interaction:clear',async()=>{const state=await interactions.clear();broadcast(state);return state;});
  ipcMain.handle('pet:expanded',(event,input)=>{if(event.sender.id!==pet?.webContents.id)throw new Error('仅桌宠窗口可调整显示尺寸');resizePet(z.boolean().parse(input));});
- const clearDisplayed=()=>{resizePet(false);for(const w of BrowserWindow.getAllWindows())w.webContents.send('message:clear');};
- ipcMain.handle('message:clear',clearDisplayed);
- ipcMain.handle('history:clear',async()=>{notifications.clear();const state=await messages.clearHistory();broadcast(state);clearDisplayed();return state;});
+ ipcMain.handle('message:clear',()=>displayQueue.clear());
+ ipcMain.handle('queue:get',()=>displayQueue.get());
+ ipcMain.handle('queue:advance',(_,id)=>displayQueue.advance(z.string().parse(id)));
+ ipcMain.handle('queue:hold',(_,input)=>{const data=z.object({id:z.string(),hold:z.boolean()}).parse(input);displayQueue.hold(data.id,data.hold)});
+ ipcMain.handle('music:import',async(event)=>{requirePanel(event);const result=await dialog.showOpenDialog(panel!,{title:'选择嫁给ta的本地前奏音乐',properties:['openFile'],filters:[{name:'音频（最大15MB）',extensions:['mp3','wav','m4a','ogg']}]});if(result.canceled)return store.get();const state=await music.import(result.filePaths[0]);broadcast(state);return state;});
+ ipcMain.handle('music:read',()=>music.read());
+ ipcMain.handle('music:clear',async(event)=>{requirePanel(event);const state=await music.clear();broadcast(state);return state;});
+ ipcMain.handle('history:clear',async()=>{notifications.clear();const state=await messages.clearHistory();broadcast(state);displayQueue.clear();return state;});
  ipcMain.handle('asset:import',async()=>{
   if(store.get().assets.length>=100)throw new Error('素材库最多保存 100 组素材');
   const result=await dialog.showOpenDialog(panel??pet!,{title:'上传人物图片 / GIF / 序列帧',properties:['openFile','multiSelections'],filters:[{name:'人物素材',extensions:['png','jpg','jpeg','webp','gif']}]});

@@ -26,7 +26,7 @@ it('同一数据根下发送、计数和清除消息只影响本版，重启各�
 it('旧外版人物恢复为本版默认，原始正文、回复和统计不丢失',()=>{
  const state=editionDefaults('ocean');state.pet.theme='palace';state.pet.character='palace_zhenhuan';state.contacts[0].effects=personalEffectSchema.parse({character:'palace_huafei',cardSkin:'palace'});
  state.history=[{id:'old-message',contact:structuredClone(state.contacts[0]),text:'保留这条旧消息',createdAt:'2026-10-14T01:00:00Z',summary:summarize('保留这条旧消息'),effect:resolveEffects(state.contacts[0],state.pet),replies:[{id:'r',text:'旧模拟回复',createdAt:'2026-10-14T01:01:00Z'}]}];
- state.interactions=[{day:'2026-10-14',contactId:'boss',contactName:'王经理',counts:{elbow:3,slap:2,burn:1,heart:0}}];
+ state.interactions=[{day:'2026-10-14',contactId:'boss',contactName:'王经理',counts:{elbow:3,slap:2,burn:1,heart:0,marry:0,kick:0}}];
  const normalized=normalizeEditionState(state,'ocean');expect(normalized.pet.theme).toBe('ocean');expect(normalized.pet.character).toBe('npc');expect(normalized.contacts[0].effects?.character).toBe('auto');expect(normalized.history[0].effect).toMatchObject({character:'leader',cardSkin:'note',theme:'ocean'});expect(normalized.history[0].text).toBe(state.history[0].text);expect(normalized.history[0].replies).toEqual(state.history[0].replies);expect(normalized.interactions).toEqual(state.interactions);expect(state.pet.theme).toBe('palace');expect(state.history[0].effect?.character).toBe('palace_huafei');
 });
 it('旧海洋配置及素材只复制一次，不改原文件，也不复制密钥或启用外部 AI',async()=>{
