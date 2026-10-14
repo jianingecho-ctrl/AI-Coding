@@ -1,4 +1,4 @@
-# Mac 零基础使用教程 · 0.9.0
+# Mac 零基础使用教程 · 0.9.1
 
 ## 1. 下载独立版
 
@@ -6,8 +6,8 @@
 
 选择版本，下载后双击 ZIP 解压到新文件夹：
 
-- [海洋独立版 0.9.0](https://github.com/jianingecho-ctrl/AI-Coding/archive/refs/tags/ocean-v0.9.0.zip)
-- [甄嬛传独立版 0.9.0](https://github.com/jianingecho-ctrl/AI-Coding/archive/refs/tags/palace-v0.9.0.zip)
+- [海洋独立版 0.9.1](https://github.com/jianingecho-ctrl/AI-Coding/archive/refs/tags/ocean-v0.9.1.zip)
+- [甄嬛传独立版 0.9.1](https://github.com/jianingecho-ctrl/AI-Coding/archive/refs/tags/palace-v0.9.1.zip)
 
 两版可以都下载，分别放在两个文件夹。这是源码 ZIP，需要下面的启动步骤。
 
@@ -50,8 +50,8 @@ npm start
 
 打开后确认左下角：
 
-- 蓝色控制台：海洋独立版 / 0.9.0。
-- 朱红金色控制台：甄嬛传独立版 / 0.9.0。
+- 蓝色控制台：海洋独立版 / 0.9.1。
+- 朱红金色控制台：甄嬛传独立版 / 0.9.1。
 
 如果仍显示「海洋桌宠版 / 0.7.0」，退出旧程序并进入这次新解压文件夹。检查命令：
 
@@ -60,7 +60,7 @@ node -p "require('./package.json').version"
 cat edition.json
 ```
 
-应分别显示 0.9.0 和本版标识 ocean 或 palace。
+应分别显示 0.9.1 和本版标识 ocean 或 palace。
 
 ## 5. 体验流程
 
