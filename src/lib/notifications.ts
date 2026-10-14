@@ -4,7 +4,7 @@ import {positionedNotifications} from './notification-layout';
 
 export const notificationSettingsSchema=z.object({
  region:z.object({mode:z.enum(['primary','custom']),x:z.number().int().min(-20000).max(20000),y:z.number().int().min(-20000).max(20000),width:z.number().int().min(50).max(800),height:z.number().int().min(50).max(1000)}).default({mode:'primary',x:0,y:0,width:480,height:360}),
- intervalSeconds:z.number().int().min(2).max(30).default(3),autoDeliver:z.boolean().default(false),
+ intervalSeconds:z.number().int().min(2).max(30).default(3),autoDeliver:z.boolean().default(true),deliveryModeVersion:z.literal(2).default(2),
 });
 export type NotificationSettings=z.infer<typeof notificationSettingsSchema>;
 export const defaultNotificationSettings=notificationSettingsSchema.parse({});
@@ -41,7 +41,7 @@ export function parseNotifications(frame:CaptureFrame,contacts:Contact[]):Parsed
   requiresConfirmation=requiresConfirmation||ownInterface||Boolean(position?.suggested);
   const contactIds=position?.contactIds??matchingContacts(sender,contacts),warnings=[];
   const matchedSource=sourceMatched||Boolean(position?.brandMatched&&frame.context==='system-notification');
-  if(!matchedSource)warnings.push('通知来源无法自动确认，请核对是否来自飞书。');
+  if(!matchedSource)warnings.push(position&&frame.context==='system-notification'?'系统通知窗口已定位，但未识别到飞书标题；请核对来源。':'通知来源无法自动确认，请核对是否来自飞书。');
   if(contactIds.length!==1)warnings.push(contactIds.length?'姓名对应多位联系人，请手动选择。':'姓名尚未绑定联系人，请选择联系人或添加通知姓名别名。');
   if(confidence<.9)warnings.push('识别置信度较低，请核对姓名与正文。');
   if(position?.suggested)warnings.push('末尾 l/I/1 可能是识别误差，联系人仅为相似姓名建议，请人工确认；不会据此自动触发。');

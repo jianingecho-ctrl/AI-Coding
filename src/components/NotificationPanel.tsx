@@ -12,7 +12,7 @@ export function NotificationPanel({state}:{state:State}){
  async function run(work:()=>Promise<unknown>,success=''){setBusy(true);setError('');setNotice('');try{const result=await work();if(result&&typeof result==='object'&&'state' in result&&result.state==='blocked')throw new Error((result as NotificationStatus).error);setNotice(success)}catch(e){setError(String(e instanceof Error?e.message:e))}finally{setBusy(false)}}
  const active=status?.state==='watching'||status?.state==='capturing';
  return <div className="notification-panel">
-  <section className="privacy-note"><h3>飞书桌面通知 · 本机识别</h3><p>读取选区内可见通知，中文识别和摘要在本机完成，不联网、不保存截图。只保存确认送达的消息。通知被隐藏、截断或未展示时，无法补全原文。</p><p>开始监测时已有通知作为基线；之后新出现的内容才提示。重启后保持暂停。回复仅在本机保存，可复制到飞书手动发送。</p></section>
+  <section className="privacy-note"><h3>飞书桌面通知 · 本机识别</h3><p>读取选区内可见通知，中文识别和摘要在本机完成，不联网、不保存截图。只保存确认送达的消息。通知被隐藏、截断或未展示时，无法补全原文。</p><p>识别一次和开始监测都会送达符合条件的当前通知；重复内容不会反复触发。重启后保持暂停。回复仅在本机保存，可复制到飞书手动发送。</p></section>
   {status?.fixture&&<p className="notice">自动验收夹具 · 未读取系统通知</p>}
   {error&&<p role="alert" className="error">{error}</p>}{notice&&<p role="status" className="notice">{notice}</p>}
   <section className="notification-controls">
@@ -22,12 +22,12 @@ export function NotificationPanel({state}:{state:State}){
    <p className="delivery-mode">当前送达模式：{state.notifications.autoDeliver?'自动送达已开启；姓名、来源或分隔不明确时仍需确认':'人工确认；检测到文字后不会直接弹出桌宠'}</p>
    <button disabled={busy} onClick={()=>void run(()=>window.judge.saveNotificationSettings({...state.notifications,region:{mode:'primary',x:0,y:0,width:480,height:240}}),'已恢复右上角 480×240 点紧凑选区，识别已暂停。请将控制台和桌宠移出选区，再识别一次。')}>恢复紧凑通知选区</button>
    <label>单次识别准备时间<select aria-label="单次识别准备时间" disabled={busy||active} value={delay} onChange={e=>setDelay(Number(e.target.value))}><option value={0}>立即识别</option><option value={5}>5 秒后识别</option><option value={10}>10 秒后识别</option></select></label>
-   <div className="editor-actions"><button className="primary" disabled={!status?.available||busy||active} onClick={()=>void run(()=>window.judge.captureNotification(delay))}>识别一次</button><button disabled={!status?.available||busy||active} onClick={()=>void run(()=>window.judge.startNotifications(),'已开始监测，当前已有通知作为基线。')}>开始监测</button><button disabled={!active} onClick={()=>void window.judge.stopNotifications().then(()=>setNotice('识别已暂停。')).catch(e=>setError(String(e)))}>暂停识别</button><button disabled={busy||(!status?.drafts.length&&!status?.lastResult)} onClick={()=>void run(()=>window.judge.clearNotificationDrafts(),'已清空草稿和识别预览并暂停。')}>清空草稿并暂停</button></div>
+   <div className="editor-actions"><button className="primary" disabled={!status?.available||busy||active} onClick={()=>void run(()=>window.judge.captureNotification(delay))}>识别一次</button><button disabled={!status?.available||busy||active} onClick={()=>void run(()=>window.judge.startNotifications(),'已开始监测，匹配明确的联系人消息会触发人物。')}>开始监测</button><button disabled={!status?.available||busy||active} onClick={()=>void run(()=>window.judge.captureNotification(delay,true))}>仅预览，不触发</button><button disabled={!active} onClick={()=>void window.judge.stopNotifications().then(()=>setNotice('识别已暂停。')).catch(e=>setError(String(e)))}>暂停识别</button><button disabled={busy||(!status?.drafts.length&&!status?.lastResult)} onClick={()=>void run(()=>window.judge.clearNotificationDrafts(),'已清空草稿和识别预览并暂停。')}>清空草稿并暂停</button></div>
    {status?.state==='capturing'&&<p role="status">本次准备时间 {delay} 秒，请展开飞书通知，并把控制台移出右上角选区。正在等待识别结果…</p>}
    {status?.lastResult&&<CaptureResult status={status}/>}
    <p className="description">开始后可最小化控制台，让通知保持在选区内。关闭控制台窗口不会停止后台识别；请点「暂停识别」停止。</p>
   </section>
-  <section className="notification-drafts"><h3>待确认通知 · {status?.drafts.length??0} 条</h3><p className="description">有待确认通知表示已识别到内容；点「确认送达桌宠」才触发人物。通知姓名别名可在联系人编辑中填写；草稿只保存在内存中。</p>
+  <section className="notification-drafts"><h3>待确认通知 · {status?.drafts.length??0} 条</h3><p className="description">有待确认通知表示已识别到内容；未满足自动送达条件；点「确认送达桌宠」可触发人物。通知姓名别名可在联系人编辑中填写；草稿只保存在内存中。</p>
    {!status?.drafts.length&&<div className="empty">尚无待确认通知。让通知显示在选区内，再点「识别一次」。</div>}
    {status?.drafts.map(draft=><DraftCard key={draft.id} draft={draft} state={state} busy={busy} onConfirm={(contactId,text)=>void run(async()=>{const message=await window.judge.confirmNotification({draftId:draft.id,contactId,text});setLast(message)},'通知已送达桌宠并保存到本版历史。')} onDismiss={()=>void run(()=>window.judge.dismissNotification(draft.id),'已忽略这条通知。')}/>)}
   </section>
@@ -37,7 +37,7 @@ export function NotificationPanel({state}:{state:State}){
    <div className="field-grid">{(['x','y','width','height'] as const).map((key,i)=><label key={key}>{['横坐标 X（点）','纵坐标 Y（点）','选区宽度（点）','选区高度（点）'][i]}<input aria-label={['横坐标 X','纵坐标 Y','选区宽度','选区高度'][i]} type="number" required min={i<2?-20000:50} max={i<2?20000:key==='width'?800:1000} disabled={i<2&&settings.region.mode==='primary'} value={settings.region[key]} onChange={e=>setSettings(v=>({...v,region:{...v.region,[key]:Number(e.target.value)}}))}/></label>)}</div>
    <label>识别间隔（秒）<input aria-label="识别间隔（秒）" type="number" min={2} max={30} required value={settings.intervalSeconds} onChange={e=>setSettings(v=>({...v,intervalSeconds:Number(e.target.value)}))}/></label>
    <label className="checkbox-label"><input type="checkbox" checked={settings.autoDeliver} onChange={e=>setSettings(v=>({...v,autoDeliver:e.target.checked}))}/>匹配明确的通知自动送达桌宠</label>
-   <p className="description">默认人工确认。自动送达要求：窗口来源符合飞书通知特征、姓名唯一匹配、识别置信度至少 90%、正文未混入小判官界面。没有文字位置的分行多张卡片需先核对边界。系统通知还需读到单独的飞书应用标题；无法确认、同名或低置信度的内容仍进入草稿。群通知按「姓名：正文」逐条拆分，群名不作为发送人。没有飞书消息 ID，相同姓名和正文在短时间内可能被合并。</p>
+   <p className="description">默认开启自动进场。系统通知或飞书弹窗中按文字位置提取、姓名唯一精确匹配且正文未混入小判官界面的消息直接触发；低置信度内容请在卡片中核对。无文字位置时仍需来源明确且置信度至少 90%。来源不明、相似姓名、同名或截断边界进入待确认草稿。系统通知窗口只能确认来自通知中心，请核对是否为飞书。群通知按「姓名：正文」逐条拆分，群名不作为发送人。没有飞书消息 ID，相同姓名和正文在短时间内可能被合并。</p>
    <button className="primary" disabled={busy}>保存通知设置</button>
   </form>
   {last&&state.history.some(m=>m.id===last.id)&&<section className="preview"><h3>最近确认的通知</h3><MessageCard state={state} message={state.history.find(m=>m.id===last.id)!}/></section>}

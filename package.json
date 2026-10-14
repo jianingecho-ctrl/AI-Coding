@@ -1,6 +1,6 @@
 {
   "name": "workplace-little-judge-ocean",
-  "version": "0.9.3",
+  "version": "0.10.0",
   "private": true,
   "description": "职场小判官·海洋版：独立桌面应用",
   "author": "职场小判官",
@@ -15,7 +15,8 @@
     "pack:mac": "npm run build && node scripts/build-native.mjs --all-arch && electron-builder --mac",
     "test:desktop": "npm run build && node tests/desktop.cjs",
     "build:native": "node scripts/build-native.mjs",
-    "test:notifications": "npm run build && node tests/notifications-desktop.cjs"
+    "test:notifications": "npm run build && node tests/notifications-desktop.cjs",
+    "test:priority": "npm run build && node tests/priority-interactions-desktop.cjs"
   },
   "dependencies": {
     "lottie-web": "^5.13.0",

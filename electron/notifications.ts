@@ -5,6 +5,10 @@ import type {MessagePipeline} from './messages';
 import type {Message} from '../src/lib/model';
 
 export interface NotificationAdapter{available:boolean;fixture:boolean;capture(settings:NotificationSettings,signal:AbortSignal,delaySeconds?:number,contactHints?:string[]):Promise<CaptureFrame>}
+export function canAutoDeliver(draft:NotificationDraft){
+ const positioned=draft.extraction==='positioned'&&(draft.context==='system-notification'||draft.context==='feishu-window');
+ return !draft.requiresConfirmation&&draft.contactIds.length===1&&(positioned||(draft.sourceMatched&&draft.confidence>=.9));
+}
 export class NotificationService{
  private status:NotificationStatus;
  private generation=0;private busy=false;private timer:ReturnType<typeof setTimeout>|undefined;private abort:AbortController|undefined;
@@ -17,19 +21,19 @@ export class NotificationService{
  stop(){this.generation++;clearTimeout(this.timer);this.timer=undefined;this.abort?.abort();this.status.state='paused';this.publish();return this.get();}
  clear(){this.stop();this.status.drafts=[];this.status.error='';delete this.status.lastResult;delete this.status.lastCapture;this.publish();return this.get();}
  dismiss(id:string){this.status.drafts=this.status.drafts.filter(d=>d.id!==id);this.publish();return this.get();}
- async start(){
+ async start(includeVisible=true){
   if(this.status.state==='watching')return this.get();
   if(this.busy)throw new Error('正在识别，请等待本轮完成再开始监测。');
   this.requireAvailable();this.generation++;this.status.state='watching';this.status.error='';this.publish();
   const generation=this.generation;
-  await this.scan(generation,true); // 初次可见通知作为基线，不把已有通知当新消息重放。
+  await this.scan(generation,!includeVisible); // 默认送达当前可见通知，重复指纹避免反复进场。
   this.schedule(generation);return this.get();
  }
- async once(delaySeconds=0){
+ async once(delaySeconds=0,previewOnly=false){
   if(!Number.isInteger(delaySeconds)||delaySeconds<0||delaySeconds>10)throw new Error('单次识别准备时间须为 0–10 秒。');
   if(this.busy||this.status.state==='watching')throw new Error('请先暂停监测，再识别一次。');
   this.requireAvailable();this.generation++;this.status.state='capturing';this.status.error='';delete this.status.lastResult;this.publish();
-  await this.scan(this.generation,false,true,delaySeconds);if(this.status.state==='capturing')this.status.state='paused';this.publish();return this.get();
+  await this.scan(this.generation,false,previewOnly,delaySeconds);if(this.status.state==='capturing')this.status.state='paused';this.publish();return this.get();
  }
  private requireAvailable(){if(!this.adapter.available)throw new Error('通知识别需要 macOS 15.2+ 和已构建的原生模块。请在 Mac 执行 npm run build；其他平台仍可使用模拟消息。');}
  private schedule(generation:number){if(generation===this.generation&&this.status.state==='watching')this.timer=setTimeout(()=>void this.scan(generation).then(()=>this.schedule(generation)),this.store.get().notifications.intervalSeconds*1000);}
@@ -57,7 +61,7 @@ export class NotificationService{
     const draft:NotificationDraft={...item,id:randomUUID(),capturedAt:new Date(this.now()).toISOString(),context:frame.context,fixture:frame.fixture||this.adapter.fixture};
     this.status.drafts=[draft,...this.status.drafts].slice(0,20);
     result.newDrafts++;
-    if(!manual&&this.store.get().notifications.autoDeliver&&draft.sourceMatched&&!draft.requiresConfirmation&&draft.contactIds.length===1&&draft.confidence>=.9){
+    if(!manual&&this.store.get().notifications.autoDeliver&&canAutoDeliver(draft)){
      await this.confirm({draftId:draft.id,contactId:draft.contactIds[0],text:draft.body},false,generation);
      result.delivered++;
     }
@@ -71,7 +75,7 @@ export class NotificationService{
  async confirm(input:{draftId:string;contactId:string;text:string},confirmedByUser=true,generation=this.generation):Promise<Message>{
   const draft=this.status.drafts.find(d=>d.id===input.draftId);if(!draft)throw new Error('识别草稿已不存在，请重新识别。');
   if(this.confirming.has(draft.id))throw new Error('该通知正在送达，请勿重复确认。');
-  if(!confirmedByUser&&(!draft.sourceMatched||draft.requiresConfirmation||draft.contactIds.length!==1||draft.contactIds[0]!==input.contactId||draft.confidence<.9))throw new Error('该通知需要人工确认。');
+  if(!confirmedByUser&&(!canAutoDeliver(draft)||draft.contactIds[0]!==input.contactId))throw new Error('该通知需要人工确认。');
   this.confirming.add(draft.id);
   try{
    const message=await this.pipeline.receive({source:'notification',senderId:input.contactId,text:input.text,notification:{capturedAt:draft.capturedAt,observedSender:draft.sender,group:draft.group,recognizedText:draft.body,confirmedByUser,context:draft.context,fixture:draft.fixture}},()=>confirmedByUser||generation===this.generation);
