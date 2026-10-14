@@ -6,7 +6,7 @@ function frame(...lines){return {status:'recognized',context:'system-notificatio
 (async()=>{
  const base=await mkdtemp(path.join(tmpdir(),'judge-live-notifications-')),errors=[],sessions=[];
  const edition=JSON.parse(await readFile('edition.json','utf8')).id;
- const editions=[edition];try{await access('public/characters/'+(edition==='ocean'?'palace_emperor':'npc')+'.png');editions.push(edition==='ocean'?'palace':'ocean')}catch{}
+ const editions=[edition==='unified'?'ocean':edition];try{await access('public/characters/'+(edition==='ocean'?'palace_emperor':'npc')+'.png');editions.push(edition==='palace'?'ocean':'palace')}catch{}
  await mkdir('test-results',{recursive:true});
  try{
   for(const id of editions){

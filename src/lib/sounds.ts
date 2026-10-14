@@ -15,8 +15,9 @@ export function interactionSound(kind:InteractionKind,sampleRate=44100):Float32A
   let value=0;
   if(kind==='elbow')value=.62*Math.sin(2*Math.PI*(115*t-75*t*t))*Math.exp(-t*19)+noise*.33*Math.exp(-t*65);
   if(kind==='slap'){
-   const second=Math.max(0,t-.045);
-   value=noise*.66*Math.exp(-t*65)+noise*.29*(t>.045?Math.exp(-second*85):0)+.19*Math.sin(2*Math.PI*230*t)*Math.exp(-t*35);
+   // 高频瞬态与短促回响突出「啪」，减少低频闷响；峰值保持安全。
+   const attack=Math.min(1,t/.0007),highNoise=noise-lowNoise,echo=Math.max(0,t-.028);
+   value=attack*(highNoise*.68*Math.exp(-t*105)+.16*Math.sin(2*Math.PI*2600*t)*Math.exp(-t*110))+(t>.028?highNoise*.2*Math.exp(-echo*95):0);
   }
   if(kind==='burn'){
    const envelope=Math.sin(Math.PI*t/duration);

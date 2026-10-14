@@ -1,4 +1,5 @@
 import type {InteractionKind} from './model';
+import kickVoiceUrl from '../assets/sounds/kick-zouni.wav?url';
 import {interactionSound} from './sounds';
 export const weddingIntroSeconds=10;
 let context:AudioContext|undefined,current:AudioBufferSourceNode|undefined,generation=0;
@@ -12,7 +13,9 @@ export async function playInteractionSound(kind:InteractionKind,enabled:boolean,
  if(token!==generation)return;
  if(context.state!=='running')throw new Error('系统音频暂不可用');
  let buffer:AudioBuffer;
- if(kind==='marry'&&loadWeddingAudio){
+ if(kind==='kick'){
+  const bytes=await (await fetch(kickVoiceUrl)).arrayBuffer();if(token!==generation)return;buffer=await context.decodeAudioData(bytes);if(token!==generation)return;
+ }else if(kind==='marry'&&loadWeddingAudio){
   const url=await loadWeddingAudio();if(token!==generation)return;
   if(!url)throw new Error('本地音乐不存在，请重新导入或恢复原创音效');
   const bytes=await (await fetch(url)).arrayBuffer();buffer=await context.decodeAudioData(bytes);if(token!==generation)return;

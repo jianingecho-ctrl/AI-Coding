@@ -54,7 +54,7 @@ const path=require('node:path');
   await send(panel,'bigSilly');await expect(pet.locator('[data-pose="reference"]')).toBeVisible();
   await pet.locator('.pet-scene').evaluate(async e=>{await Promise.all(e.getAnimations().map(a=>a.finished.catch(()=>{})))});
   await pet.screenshot({path:'test-results/mvp-message.png',omitBackground:true});
-  await expect(pet.getByText('未调用 AI',{exact:false})).toBeVisible();await expect(pet.getByText('明天下午3点前、本周',{exact:true})).toBeVisible();
+  await expect(pet.getByText('未调用 AI',{exact:false})).toBeVisible();await pet.locator('.structured-summary>summary').click();await expect(pet.getByText('明天下午3点前、本周',{exact:true})).toBeVisible();
   await expect(pet.locator('dt').filter({hasText:'紧急程度'})).toBeVisible();
   await pet.getByRole('button',{name:'查看原消息'}).click();await expect(pet.locator('.original')).toBeVisible();expect(await pet.locator('.card-content').evaluate(e=>e.scrollTop)).toBeGreaterThan(0);
   expect(await petBounds()).toMatchObject({width:420,height:582});

@@ -61,3 +61,14 @@
 .privacy-note { font-size:11px;line-height:1.8;padding:14px 18px;border:1px solid #a7d5ec;border-radius:12px;background:#eef9ffb8;margin-bottom:18px; }
 .privacy-note p { margin:6px 0 0; }
 .privacy-note button { margin-top:8px;font-size:11px; }
+
+.theme-switcher {display:flex;justify-content:space-between;align-items:center;gap:20px;padding:20px;border:1px solid #fff9;background:#eefaffe0;border-radius:18px;margin-bottom:18px;}
+.theme-switcher h3 {margin:0 0 6px;}
+.theme-switcher p {margin:0;font-size:12px;line-height:1.8;max-width:430px;}
+.theme-choices {display:flex;gap:8px;flex-shrink:0;}
+.theme-choices button {display:flex;flex-direction:column;gap:4px;min-width:104px;padding:12px;}
+.theme-choices button[aria-pressed=true] {background:#177ca1;color:#fff;border-color:#177ca1;opacity:1;}
+.theme-choices small {font-size:10px;}
+.dashboard.theme-palace .theme-switcher {background:#fff4e5;border-color:#d4ad73;color:#795536;}
+.dashboard.theme-palace .theme-choices button[aria-pressed=true] {background:#954547;border-color:#954547;}
+@media(max-width:900px){.theme-switcher{align-items:flex-start;flex-direction:column;}}

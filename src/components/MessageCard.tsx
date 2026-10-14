@@ -35,11 +35,12 @@ export function MessageCard({message,state,onClose,onIgnore,onInteraction,onHold
   <div className="card-content" ref={content}>
   <div className="card-top"><span>{message.preview?'效果预览 · 不记录历史':`来自 ${message.contact.name}`}</span><b>{categoryLabel(message.contact.category,state.pet.theme)}</b></div>
   <small className="message-priority" data-priority={contactPriority(message.contact)}>收到消息优先级：{contactPriority(message.contact)}</small>
-  <h3 className="catchphrase">{effect.line}</h3>
+  <section className="message-body" aria-label="消息正文"><strong>{notification?'通知正文':'消息正文'}</strong><p>{message.text}</p></section>
   {notification&&<small className="notification-source">{message.notification?.fixture?'通知验收夹具 · 未读取屏幕':'屏幕通知识别'} · {message.notification?.confirmedByUser?'人工确认':'自动匹配'}{message.notification?.group?' · 群：'+message.notification.group:''}</small>}
   <small>{message.summary.source} · {message.summary.source==='本地规则摘要'?'未调用 AI':'请核对原文'}</small>
-  {message.summary.warning&&<p className="summary-warning">{message.summary.warning}</p>}
-  <dl><dt>一句话摘要</dt><dd>{message.summary.core}</dd><dt>待办事项</dt><dd>{message.summary.todos.length?<ul>{message.summary.todos.map((todo,i)=><li key={i}>{todo}</li>)}</ul>:'未提取到明确待办'}</dd><dt>截止时间</dt><dd>{message.summary.deadline}</dd><dt>紧急程度</dt><dd>{message.summary.urgency}</dd><dt>是否需要回复</dt><dd>{message.summary.reply}</dd></dl>
+  {message.summary.warning&&!notification&&<p className="summary-warning">{message.summary.warning}</p>}
+  <details className="structured-summary"><summary>摘要与待办</summary><dl><dt>一句话摘要</dt><dd>{message.summary.core}</dd><dt>待办事项</dt><dd>{message.summary.todos.length?<ul>{message.summary.todos.map((todo,i)=><li key={i}>{todo}</li>)}</ul>:'未提取到明确待办'}</dd><dt>截止时间</dt><dd>{message.summary.deadline}</dd><dt>紧急程度</dt><dd>{message.summary.urgency}</dd><dt>是否需要回复</dt><dd>{message.summary.reply}</dd></dl></details>
+  <details className="analysis-notes"><summary>来源与解析说明</summary><p className="catchphrase">{effect.line}</p>{message.summary.warning&&notification&&<p className="summary-warning">{message.summary.warning}</p>}</details>
   {original&&<div className="original" ref={originalContent}><strong>{notification?'通知可见内容（请到飞书核对完整原文）':'原消息'}</strong><p>{message.text}</p>{notification&&message.notification?.recognizedText!==message.text&&<><strong>原始识别正文</strong><p>{message.notification?.recognizedText}</p></>}</div>}
   {replies.length>0&&<div className="local-replies"><strong>{notification?'本地回复草稿':'本地模拟回复'} · 未发送到飞书</strong>{replies.map(r=><p key={r.id}>{r.text}{notification&&<button onClick={()=>void window.judge.copyText(r.text).then(()=>setCopyNotice('已复制，请到飞书手动粘贴发送。')).catch(e=>setCopyNotice('复制失败：'+String(e)))}>复制回复</button>}</p>)}{copyNotice&&<small role="status">{copyNotice}</small>}</div>}
   {composing&&<form className="reply-form" onSubmit={async e=>{e.preventDefault();setSending(true);setError('');try{const updated=await window.judge.replyMessage({messageId:message.id,text:reply});setReplies(updated.replies??[]);setReply('');setComposing(false)}catch(e){setError('回复失败：'+String(e))}finally{setSending(false)}}}>
@@ -51,10 +52,10 @@ export function MessageCard({message,state,onClose,onIgnore,onInteraction,onHold
   <div className="card-footer">
    <div className="interaction-actions" aria-label="趣味互动">{interactionKinds.map(kind=><button key={kind} onClick={()=>interact(kind)}><InteractionIcon kind={kind}/>{interactionLabels[kind]}</button>)}</div>
    <div className="card-actions"><button onClick={()=>setOriginal(v=>!v)}>{notification?(original?'收起通知内容':'查看通知内容'):(original?'收起原消息':'查看原消息')}</button><button disabled={message.preview} title={message.preview?'请发送测试消息后再回复':'输入并保存本地回复草稿'} onClick={()=>setComposing(v=>!v)}>回复消息</button><button onClick={()=>onIgnore?onIgnore():setIgnored(true)}>忽略</button>{onClose&&<button onClick={onClose}>关闭</button>}</div>
-   <div className="daily-interactions" aria-label="今日互动次数">
-    <p>{message.preview?'效果预览 · 互动不计入统计':lastKind?interactionLine(lastKind,contactName,counts[lastKind]):`今天与${contactName}的互动`}</p>
+   <details className="daily-interactions" aria-label="今日互动次数">
+    <summary title={lastKind?interactionLine(lastKind,contactName,counts[lastKind]):`今天与${contactName}的互动`}>{message.preview?'效果预览 · 互动不计入统计':lastKind?interactionLine(lastKind,contactName,counts[lastKind]):`今天与${contactName}的互动 · ${Object.values(counts).reduce((sum,n)=>sum+n,0)} 次`}</summary>
     {!message.preview&&<div className="interaction-counts">{interactionKinds.map(kind=><span data-count={kind} key={kind}>{interactionLabels[kind]} {counts[kind]} 次</span>)}</div>}
-   </div>
+   </details>
    {interactionError&&<p role="alert" className="interaction-error">{interactionError}</p>}{soundError&&<p role="alert" className="interaction-error">{soundError}</p>}
   </div>
  </article>;

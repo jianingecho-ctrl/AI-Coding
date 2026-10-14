@@ -1,12 +1,14 @@
-import {useEffect,useState} from 'react';
+import {useContext,useEffect,useState} from 'react';
 import {personaIds,palaceIds,type CharacterId,type CharacterSkin} from '../lib/model';
 import {CamelCharacter} from './CamelCharacter';
 import {FishCharacter} from './FishCharacter';
 import {ReferenceCharacter} from './ReferenceCharacter';
+import {ProfileContext} from '../lib/profile-context';
 const cache=new Map<string,Promise<string[]>>();
 export function Character({character='npc',action='idle',name='小判官',color,skin='desert',duration=1.2,assetId=null}:{character?:CharacterId;action?:string;name?:string;color?:string;skin?:CharacterSkin;duration?:number;assetId?:string|null}){
+ const profile=useContext(ProfileContext),cacheKey=profile+':'+assetId;
  const [custom,setCustom]=useState<string[]>([]),[failure,setFailure]=useState('');
- useEffect(()=>{let active=true;setCustom([]);setFailure('');if(assetId){let request=cache.get(assetId);if(!request){request=window.judge.getAssetFrames(assetId);cache.set(assetId,request);}request.then(frames=>{if(active)setCustom(frames)}).catch(()=>{cache.delete(assetId);if(active)setFailure('素材无法读取，使用内置人物');});}return()=>{active=false}},[assetId]);
+ useEffect(()=>{let active=true;setCustom([]);setFailure('');if(assetId){let request=cache.get(cacheKey);if(!request){request=window.judge.getAssetFrames(assetId);cache.set(cacheKey,request);}request.then(frames=>{if(active)setCustom(frames)}).catch(()=>{cache.delete(cacheKey);if(active)setFailure('素材无法读取，使用内置人物');});}return()=>{active=false}},[assetId,profile]);
  const builtin=[...personaIds,...palaceIds].includes(character as typeof personaIds[number]|typeof palaceIds[number]);
  const frames=custom;
  const framesKey=custom.length?assetId:`${character}/${action}`;

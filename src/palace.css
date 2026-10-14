@@ -54,3 +54,5 @@
 .pet-stage[data-theme=palace] .pet-toolbar button,.pet-stage[data-theme=palace] .drag-handle,.pet-stage[data-theme=palace] .pet-name,.pet-stage[data-theme=palace] .restore-chip { color:#785139;background:#fff2d9ed;border-color:#d2ac6b; }
 .pet-stage[data-theme=palace] .idle-bubble { color:#755036;background:#fff6e0;border-color:#b58c51;box-shadow:3px 3px 0 #97632915; }
 @media(max-width:850px) { .edition-banner {align-items:flex-start;flex-direction:column;} }
+
+.pet-stage[data-theme=palace] .queue-chip {background:#fff2d9ed;color:#785139;}

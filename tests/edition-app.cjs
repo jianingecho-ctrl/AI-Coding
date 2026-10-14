@@ -13,7 +13,7 @@ async function launchEdition(base,edition,errors=[],extraEnv={}){
  const pet=app.windows().find(p=>p.url().includes('view=pet')),panel=app.windows().find(p=>p.url().includes('view=panel'));
  for(const page of [pet,panel])page.on('pageerror',e=>errors.push(e.message));
  await expect(panel.getByRole('button',{name:'发送测试消息 ↗'})).toBeEnabled();await expect(pet.locator('.reference-character[data-ready="true"]').first()).toBeVisible();
- const info=await panel.evaluate(()=>window.judge.getAppInfo());expect(info.edition).toBe(edition);
+ const info=await panel.evaluate(()=>window.judge.getAppInfo());if(edition==='unified')expect(info.canSwitch).toBe(true);else expect(info.edition).toBe(edition);
  return {app,pet,panel,info,env};
 }
 module.exports={launchEdition};

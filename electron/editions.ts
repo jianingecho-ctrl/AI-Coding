@@ -4,7 +4,7 @@ import {z} from 'zod';
 import {stateSchema,type Theme} from '../src/lib/model';
 import {editionDefinitions,normalizeEditionState} from '../src/lib/editions';
 
-export function parseEdition(raw:string):Theme{return z.object({id:z.enum(['ocean','palace'])}).parse(JSON.parse(raw)).id;}
+export function parseEdition(raw:string):Theme|'unified'{return z.object({id:z.enum(['ocean','palace','unified'])}).parse(JSON.parse(raw)).id;}
 export function editionDataRoot(base:string,edition:Theme){return path.join(base,editionDefinitions[edition].dataDirectory);}
 export async function migrateLegacyOcean(destination:string,candidates:string[]):Promise<boolean>{
  const target=path.join(destination,'judge-state.json');

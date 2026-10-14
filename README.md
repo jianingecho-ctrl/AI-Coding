@@ -1,129 +1,99 @@
-# 职场小判官 · 0.10.0
+# 职场小判官 · 0.11.0 双主题版
 
-Electron + React + TypeScript 的 macOS 桌面消息助手。海洋版与甄嬛传版现为两个独立应用：固定控制台与人物、独立安装身份、独立联系人和数据。移除主题切换，两版可同时运行。
+真正运行在 Mac 桌面的趣味消息助手，使用 Electron + React + TypeScript。一个应用内置比奇堡、甄嬛传两套风格，在测试面板切换。六个板块和桌面人物一起切换，联系人、消息历史、回复、互动次数、素材、音乐、AI 配置及密钥分档保存。
 
-本仓库的 desktop-pet-mvp 分支维护共用代码，默认启动海洋版。用户应下载对应独立包：
-
-| 独立版 | 下载源码 | 双击启动 |
-| --- | --- | --- |
-| 海洋版 | [海洋 0.10.0](https://github.com/jianingecho-ctrl/AI-Coding/archive/refs/tags/ocean-v0.10.0.zip) | 启动海洋版.command |
-| 甄嬛传版 | [甄嬛传 0.10.0](https://github.com/jianingecho-ctrl/AI-Coding/archive/refs/tags/palace-v0.10.0.zip) | 启动甄嬛传版.command |
-
-源码 ZIP 需要在 Mac 安装依赖并启动，不是已经打包的 .app。步骤见 [独立版指南](docs/独立版使用指南.md) 和 [Mac 教程](docs/Mac使用教程.md)。
-
-![海洋独立版控制台](docs/images/ocean-independent.png)
-
-![甄嬛传独立版控制台](docs/images/palace-independent.png)
-
-## 两版设计
-
-| 项目 | 海洋版 | 甄嬛传版 |
-| --- | --- | --- |
-| 控制台 | 海蓝渐变、海浪、气泡、浅色面板 | 朱红宫墙、窗棂、鎏金、素纸 |
-| 人物 | 七类海洋人物，兼容旧版骆驼 | 皇上、沈眉庄、华妃、敬妃、安陵容、皇后宜修、甄嬛 |
-| 导航 | 测试面板、联系人、消息历史、互动统计、人物设置 | 传话演示、宫中名册、往来书信、互动战绩、宫廷人物 |
-| Bundle ID | cn.workplace.littlejudge.ocean | cn.workplace.littlejudge.palace |
-| 数据目录名 | workplace-little-judge-ocean | workplace-little-judge-palace |
-
-打开就进入本版。人物列表只显示本版人物，保存接口同样拒绝外版人物和主题。每版分别保存联系人、历史、回复、计数、素材、尺寸、声音、AI 设置与加密密钥。一版修改、清空或退出，不影响另一版。独立源码包只包含本版内置人物素材和对应启动脚本。
-
-0.9.1 修复 Mac 自带 Bash 3.2 在原生构建成功提示处将中文标点并入变量名、导致 `unbound variable` 并中断启动的问题。新增原生构建脚本流程回归测试，覆盖双架构、空格路径、失败退出与保留已有模块。
-
-0.9.2 修复展开系统通知中连续「姓名／正文」卡片被合并的问题；增加单次识别准备时间、本轮原始文字与选区预览、当前送达模式，以及基线／重复／待确认的具体结果。暂停后的单次识别可核对未处理的基线通知，普通桌面文字不会生成未知发送人的消息，混入自身界面或边界不明确时不会自动送达。
-
-0.9.3 增加通知窗口收窄、文字位置和联系人姓名识别提示。已配置姓名不在截图首行时也可定位，按同列和行距提取正文，排除远处文件和自身界面；窗口顶部保留有限的应用标题区域。姓名提示通过标准输入发送给本机 Vision，不写入临时文件或外部服务。界面显示精确匹配或相似姓名建议，并提供恢复紧凑选区按钮；相似姓名、低置信度和无法确认的来源仍需人工核对。
-
-0.10.0 按联系人优先级自动进场，明确匹配的当前通知可直接触发，回复和互动时暂停插队。新增嫁给ta、飞踢ta，含效果、声音和计数；支持导入本地婚礼音频，播放开头最多 10 秒。未导入时使用原创钟声，未内置商业歌曲。
-
-## 功能
-
-- 透明、无边框、可拖动、可置顶桌宠，支持隐藏、恢复、退出。默认为旧尺寸的 60%，可调至 45%–100%，实际窗口随待机与卡片收缩/展开。
-- 七类人物保持轻微 Lottie 待机晃动，通过跑入、走入、飘入、翻滚、蹦跳、右侧滑入、淡入区分进场，不要求下跪。
-- 每位联系人独立配置本版人物、进场、皮肤、卡片、时长、趣味特效和台词，个人配置优先。
-- 上传 PNG/JPG/WebP、GIF、多图序列帧，实际用于桌面人物；素材复制到本版目录。单图限 5 MB、GIF 15 MB、序列帧 60 帧/50 MB、素材库 100 组。
-- 模拟消息触发完整流程；七人演示和联系人预览不记录历史、不调用 AI、不计数。
-- 卡片展示摘要、待办、截止时间、紧急程度、回复要求、原消息。
-- 肘击、扇嘴、烧心、比心、嫁给ta、飞踢ta显示对应图标和离线合成音效，可静音、调音量。
-- 桌面消息卡片显示当天对该联系人的六种次数，控制台展示今日汇总。按本机日期计算，重启保留，保存最近 90 天。清空历史与清空统计互相独立。
-- 回复只保存本地并标注未发送到飞书；忽略/关闭恢复待机；历史可恢复到桌面，不重复写入或分析。
-- 最近 200 条消息本地保存；清空历史会清除当前卡片，未完成的旧解析不会重新写回。
-
-0.9.3 增加可见飞书通知的本机 OCR 实验接入，支持一次识别、开始/暂停、姓名别名、群通知拆分、人工确认、严格条件下自动送达和短时去重。不会登录账号或读取后台聊天；只能处理所选区域的可见文本。详见 [飞书通知使用教程](docs/飞书通知使用教程.md)。真实通知始终使用本地规则，不调用外部 AI，回复可保存并复制到飞书手动发送。
-
-模拟消息继续支持可选 AI。默认关闭 AI，明确显示「本地规则摘要 · 未调用 AI」。可选本机 Ollama 或 OpenAI 兼容服务；失败会提示并降级。在线 AI 只传输当前消息正文、模型参数、摘要提示，不上传名单、历史、回复、素材。
-
-## 目录
-
-```text
-AI-Coding/
-├── edition.json              固定发行版标识
-├── electron/
-│   ├── main.ts               窗口、独立应用身份、IPC
-│   ├── editions.ts           数据目录与旧海洋数据复制
-│   ├── store.ts              校验与原子保存
-│   ├── messages.ts           消息分析和历史
-│   ├── notifications.ts      草稿、来源校验、匹配、监测与去重
-│   ├── notification-adapter.ts 原生识别进程适配
-│   ├── interactions.ts       每日计数
-│   ├── assets.ts             素材导入
-│   ├── ai.ts                 可替换的 AI 服务
-│   ├── credentials.ts        加密密钥
-│   └── preload.ts            页面通信
-├── src/
-│   ├── App.tsx               桌宠和固定控制台
-│   ├── lib/editions.ts        人物限制、默认配置、文案
-│   ├── lib/palace.ts          宫廷人物和台词
-│   ├── components/           人物、卡片、配置和统计
-│   ├── ocean.css             海洋界面
-│   └── palace.css            宫廷界面和卡片
-├── native/                   Swift 区域截图、Vision OCR 和构建脚本
-├── public/                   本地人物素材
-├── scripts/export-editions.mjs 独立源码导出
-├── tests/                    单元、Electron、隔离验收
-├── docs/                     使用教程
-└── package.json
-```
-
-## 开发和验证
-
-建议 Node.js 24 LTS。在项目目录执行：
+[下载双主题源码 ZIP](https://github.com/jianingecho-ctrl/AI-Coding/archive/refs/tags/unified-v0.11.0.zip)。解压后双击「启动双主题版.command」，或在文件夹内执行：
 
 ```bash
-ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/" npm ci
+npm ci
+npm run build
+npm start
+```
+
+源码 ZIP 需要在 Mac 安装依赖、构建，未提供已签名、公证的 Mac 安装包。详见 [Mac 启动教程](docs/Mac使用教程.md)。
+
+## 这版的改动
+
+- 在测试面板选择比奇堡或甄嬛传，控制台、人物、飞书通知、联系人、消息历史、互动统计和人物设置同步切换。自动恢复上次选择。
+- 两套资料分别保存。切换暂停通知识别，清除草稿、当前卡片及展示队列，并停止音效。异步分析只保存在原档案，不弹入另一套。
+- 首次使用某个档案时复制原独立版有效配置、素材及音乐，保留原目录，不持续同步。迁移后关闭 AI，密钥需重新配置。
+- 消息正文默认展开；摘要、待办和解析说明可展开。六个互动按钮压成一行，计数默认折叠，正文空间增大，长消息可滚动、选择复制。
+- 掌嘴声强调短促、高频的「啪」；飞踢播放内置原创合成短句「走你」，人物飞出再回来。离线播放，不调用系统语音或网络服务。
+
+## 已有功能
+
+透明、无边框、可拖动和置顶桌宠，默认 60% 尺寸，可调整、隐藏或退出。七类人物保持轻微待机晃动，使用跑入、走入、飘入、翻滚、蹦跳、右侧滑入、淡入区分进场。
+
+每个联系人独立配置本主题人物、进场、皮肤、卡片、时长、特效、台词和消息优先级。PNG/JPG/WebP、GIF、多图序列帧可上传并实际显示。模拟消息、预览和七人演示不依赖飞书账号。
+
+可见飞书通知使用本机区域截图和中文文字识别。识别一次或开始监测，可将明确匹配到联系人的当前通知自动送达。来源、姓名或正文不明确时人工确认。只能读取屏幕展示的内容，隐藏、截断、被遮挡的消息无法补全。详见 [通知教程](docs/飞书通知使用教程.md)。
+
+已送达通知按联系人优先级展示，高优先级可先出场，原卡片回到队列。同级先到先展示，回复及互动时暂停插队，关闭当前卡片展示下一条。重启后监测暂停，展示队列不持久化，消息历史保留最近 200 条。
+
+肘击、扇嘴、烧心、比心、嫁给ta、飞踢ta都有对应效果和音效；今日次数按本机日期统计、重启保留，最近 90 天可查看汇总。趣味互动不向同事发送内容。
+
+婚礼音乐可导入本地 MP3/WAV/M4A/OGG，最大 15 MB，只播放开头最多 10 秒并淡出。未导入时明确使用原创钟声，未内置《今天你要嫁给我》商业录音。各主题音乐独立，删除副本不影响原文件。
+
+消息卡片支持正文、结构化摘要、待办、截止时间、紧急程度、回复要求和原始识别内容。回复仅保存在本地，可复制到飞书手动发送。
+
+## 隐私和数据
+
+截图及未送达草稿只存内存，不上传。真实通知始终本机规则解析，不调用外部 AI。模拟消息可选本机 Ollama 或 OpenAI 兼容服务，默认关闭；在线 AI 的传输范围在界面说明，失败明确降级。
+
+双主题数据在：
+
+```text
+~/Library/Application Support/workplace-little-judge-unified/
+├── active-profile.json       上次选择的主题
+├── profiles/ocean/           比奇堡联系人、历史、统计、素材、音乐及密钥
+├── profiles/palace/          甄嬛传联系人、历史、统计、素材、音乐及密钥
+└── session/                  应用会话
+```
+
+备份前退出应用，再复制整个目录。清空某个主题的历史、统计或音乐不会清除另一主题。
+
+## 开发与验证
+
+```bash
+npm ci
+npm run typecheck
 npm test
 npm run build
 npm start
 ```
 
-之后执行 npm start 即可。开发模式 npm run dev 启动 Vite 和 Electron，需在 Electron 中操作；浏览器没有桌面通信接口。
-
-共用仓库验收和导出：
+桌面验收需要图形环境，Linux 可使用 Xvfb：
 
 ```bash
-npm run test:desktop
-npm run build
-node tests/palace-desktop.cjs
-npm run test:isolation
+npm run test:unified
+npm run test:priority
 npm run test:notifications
-npm run sources
 ```
 
-导出到 .edition-sources/ocean 和 .edition-sources/palace，分别写入标识、包名、Bundle ID、产品名、打包目录与启动脚本，并剔除外版内置素材。独立包的 npm run test:desktop 验收本版。
+`node tests/unified-races-desktop.cjs` 验证切换期间旧分析、文件选择及声音不会串入新档案。通知测试使用虚构 OCR 夹具，未读取真实屏幕；云端无法编译 macOS 模块或听取 Mac 扬声器，需要本机验收。
 
-Linux 云端已通过 113 项单元测试、TypeScript、生产构建、两版真实 Electron 交互及双应用隔离测试。隔离验收让两版在相同测试父目录同时运行：验证联系人、消息、回复、次数、素材、密钥文件、会话独立，外版人物被拒绝，清除、退出、重启互不影响，同版重复打开只激活已有进程。
+Mac 打包：
 
-Linux 桌面验收需要 Xvfb，测试只在 Linux 测试进程使用 --no-sandbox。应用窗口保持上下文隔离、禁用页面 Node、沙箱开启。截图输出在 test-results。
+```bash
+npm run pack:mac
+```
 
-通知桌面测试使用明确标注的虚构 OCR 夹具，未读取系统通知。启动监测以首轮可见通知为基线；默认自动送达、重启暂停。Swift 原生模块只在 Mac 构建，Linux 的 build 明确跳过这一步。
+结果在 release/unified/，包含 arm64/x64 原生识别模块和两套人物。未在云端生成或验证已签名、公证的 DMG。
 
-Mac 仍需手动验收：原生编译、实际截图与通知窗口来源判断、当前应用录屏授权、双击脚本、拖动、实际音效、Spaces/全屏/多屏置顶、Retina、原生文件选择器、Keychain、真实 AI、DMG 打包和安装。云端没有 macOS，没有生成已签名或公证的 Mac 安装包。
+## 目录
 
-## 打包与数据
+```text
+src/App.tsx                     主题选择及六板块
+src/components/MessageCard.tsx  正文、摘要、回复和紧凑互动
+src/lib/profile-context.ts     主题范围与人物素材缓存隔离
+src/lib/interaction-audio.ts   音量、静音、音乐前奏和走你语音
+src/assets/sounds/             内置语音素材
+electron/main.ts               窗口、切换与 IPC
+electron/profiles.ts           独立档案与旧版复制
+electron/notifications.ts      本机通知接入与去重
+electron/message-queue.ts      联系人优先级队列
+native/NotificationCapture.swift  区域截图及本机识别
+scripts/export-editions.mjs    导出统一源码目录
+```
 
-在每个独立版目录执行 npm run pack:mac，分别生成 release/ocean 或 release/palace 下的 arm64/x64 DMG、ZIP。应用名分别为「职场小判官·海洋版.app」「职场小判官·甄嬛传版.app」，可同时安装，当前未配置签名、公证。
-
-Mac 数据位于 ~/Library/Application Support/workplace-little-judge-ocean/ 和 ~/Library/Application Support/workplace-little-judge-palace/，各自包含 judge-state.json、assets/、ai-key.enc 和 session/。源码与打包应用使用相同本版目录。
-
-海洋版首次启动时，如果旧共享目录最后使用海洋主题，会一次性复制旧配置、历史、统计、素材并修正夹杂的宫廷人物。原目录不变，复制后 AI 关闭、不复制密钥。甄嬛版从新配置开始，不自动读取旧共享数据。具体条件见使用指南。
-
-真实飞书接入边界见 [接入方案](docs/飞书消息接入方案.md)。
+内置「走你」由 eSpeak NG 根据固定短句离线合成，生成脚本为 scripts/render-kick-voice.py；仅重新生成素材时需要 Python 与 espeakng-loader==0.2.4，应用运行不需要它们。

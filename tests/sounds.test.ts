@@ -7,3 +7,8 @@ it('六种音效实际包含音频信号、没有非有限数值或过量振幅�
  expect(durations.size).toBe(6);
 });
 it('支持设备采样率变化，输出时长保持一致',()=>{for(const kind of interactionKinds)expect(interactionSound(kind,48000).length/48000).toBeCloseTo(interactionSound(kind,44100).length/44100,4);expect(()=>interactionSound('elbow',0)).toThrow();});
+it('掌嘴声短促且高频瞬态比旧配方更突出，前35ms集中主要能量',()=>{
+ const rate=48000,pcm=interactionSound('slap',rate);let early=0,late=0,difference=0,total=0;
+ for(let i=1;i<pcm.length;i++){const power=pcm[i]*pcm[i];total+=power;difference+=(pcm[i]-pcm[i-1])**2;if(i<rate*.035)early+=power;else late+=power;}
+ expect(early).toBeGreaterThan(late*2);expect(difference/total).toBeGreaterThan(1.4);
+});

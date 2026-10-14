@@ -1,8 +1,8 @@
 {
-  "name": "workplace-little-judge-ocean",
-  "version": "0.10.0",
+  "name": "workplace-little-judge-unified",
+  "version": "0.11.0",
   "private": true,
-  "description": "职场小判官·海洋版：独立桌面应用",
+  "description": "职场小判官：比奇堡与甄嬛传双主题，分档保存",
   "author": "职场小判官",
   "main": "dist-electron/electron/main.js",
   "scripts": {
@@ -18,7 +18,8 @@
     "test:isolation": "npm run build && node tests/isolation.cjs",
     "build:native": "node scripts/build-native.mjs",
     "test:notifications": "npm run build && node tests/notifications-desktop.cjs",
-    "test:priority": "npm run build && node tests/priority-interactions-desktop.cjs"
+    "test:priority": "npm run build && node tests/priority-interactions-desktop.cjs",
+    "test:unified": "npm run build && node tests/unified-desktop.cjs"
   },
   "dependencies": {
     "lottie-web": "^5.13.0",
@@ -43,17 +44,16 @@
     "wait-on": "^9.0.1"
   },
   "build": {
-    "appId": "cn.workplace.littlejudge.ocean",
-    "productName": "职场小判官·海洋版",
+    "appId": "cn.workplace.littlejudge.unified",
+    "productName": "职场小判官",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
       "package.json",
-      "edition.json",
-      "!dist/characters/palace_*.png"
+      "edition.json"
     ],
     "directories": {
-      "output": "release/ocean"
+      "output": "release/unified"
     },
     "mac": {
       "target": [

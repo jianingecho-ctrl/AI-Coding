@@ -21,6 +21,7 @@ import {palaceRoster} from './lib/palace';
 import {categoryLabel,editionCardSkins,editionSkins} from './lib/editions';
 import {NotificationPanel} from './components/NotificationPanel';
 import './notifications.css';
+import {ProfileContext} from './lib/profile-context';
 import {WeddingMusicSettings} from './components/WeddingMusicSettings';
 
 export function App() {
@@ -35,10 +36,11 @@ export function App() {
     }
     let active = true;
     const off = window.judge.onState(s => { if (active) setState(s); });
+    const offProfile=window.judge.onProfile(value=>{if(active){setState(value.state);setAppInfo(value.info);setError('');}});
     Promise.all([window.judge.getAppInfo(),window.judge.getState()]).then(([info,s]) => {
       if (active) { setState(s);setAppInfo(info);setReady(true); }
     }).catch(e => setError(String(e)));
-    return () => { active = false; off(); };
+    return () => { active = false; off();offProfile(); };
   }, []);
   const petView = new URLSearchParams(location.search).get('view') === 'pet';
   useEffect(() => {
@@ -46,8 +48,8 @@ export function App() {
     document.documentElement.classList.toggle('pet-window', petView);
   }, [petView]);
   if(!appInfo)return <p className="bootstrap-status">{error||'正在打开独立版小判官…'}</p>;
-  if (petView) return <Pet state={state} error={error}/>;
-  return <Panel appInfo={appInfo} state={state} ready={ready} error={error} setError={setError}/>;
+  if (petView) return <ProfileContext.Provider value={state.pet.theme}><Pet key={state.pet.theme} state={state} error={error}/></ProfileContext.Provider>;
+  return <ProfileContext.Provider value={state.pet.theme}><Panel key={state.pet.theme} appInfo={appInfo} state={state} ready={ready} error={error} setError={setError}/></ProfileContext.Provider>;
 }
 
 function Pet({state, error}: {state: State; error: string}) {
@@ -83,7 +85,7 @@ function Pet({state, error}: {state: State; error: string}) {
       {message && <MessageCard key={message.id} state={state} message={state.history.find(m=>m.id===message.id)??message}
         onClose={() => {setDismissed(message);void window.judge.advanceMessage(message.id)}}
         onIgnore={() => {setDismissed(message);void window.judge.advanceMessage(message.id)}}
-        onHold={hold=>{void window.judge.holdMessage(message.id,hold)}}
+        onHold={hold=>{void window.judge.holdMessage(message.id,hold).catch(()=>{})}}
         onInteraction={kind=>setReaction(r=>({kind,key:(r?.key??0)+1}))}/>}
       {!message&&!canRestore && <div className="idle-bubble">
         {state.pet.theme==='palace'?'本宫待命，摸鱼随缘。':action === 'fish' ? '带薪摸鱼，也是努力。' : action === 'yawn' ? '不是我困，是班太长。' : '打工待命，摸鱼在线。'}
@@ -150,7 +152,7 @@ function Panel({appInfo,state, ready, error, setError}: {
     {palace?<PalaceBackdrop/>:<OceanBackdrop/>}
     <aside>
       <div className="brand-icon">{palace?'宫':'海'}</div>
-      <h1>职场小判官<span>{palace?'甄嬛传独立版 · 本宫替你判':'海洋独立版 · 每人各有戏'}</span></h1>
+      <h1>职场小判官<span>{palace?'甄嬛传档案 · 本宫替你判':'比奇堡档案 · 每人各有戏'}</span></h1>
       <nav>{['测试面板','飞书通知', '联系人', '消息历史','互动统计', '人物设置'].map(t =>
         <button key={t} data-tab={t} className={tab === t ? 'active' : ''} onClick={() => {if(demoRunning)stopDemo();setTab(t);setNotice('');}}>{tabNames[t]??t}</button>
       )}</nav>
@@ -162,10 +164,11 @@ function Panel({appInfo,state, ready, error, setError}: {
         <button onClick={()=>window.judge.showPet()}>显示桌宠</button><span className="pill">{tab==='飞书通知'?'通知：本机规则解析':state.ai.enabled ? (state.ai.provider==='ollama'?'本地 AI 模式':'在线 AI 模式') : '离线规则模式'}</span></header>
       {error && <p role="alert" className="error">{error}</p>}
       {notice && <p role="status" className="notice">{notice}</p>}
-      <div className="edition-banner"><strong>{appInfo.name}</strong><span>人物、联系人、消息和互动次数仅保存在本版</span></div>
-      {appInfo.migratedLegacy&&<p className="notice">旧海洋版的配置和记录已复制到本版，原目录保留。AI 当前关闭，请在本版重新设置密钥。</p>}
+      <div className="edition-banner"><strong>{appInfo.name} · {palace?'甄嬛传':'比奇堡'}</strong><span>人物、联系人、消息、互动和音乐仅保存在当前档案</span></div>
+      {appInfo.migratedLegacy&&<p className="notice">旧版配置与记录已复制到当前档案，原目录保留。AI 当前关闭，请在当前档案重新设置密钥。</p>}
 
       {tab === '测试面板' && <>
+        {appInfo.canSwitch&&<section className="theme-switcher" aria-label="主题档案切换"><div><h3>选择桌宠世界</h3><p>切换整套控制台和桌宠。两套联系人、历史、互动、人物素材和音乐分别保存；切换会暂停通知监测。</p></div><div className="theme-choices">{(['ocean','palace'] as const).map(theme=><button key={theme} disabled={busy||theme===state.pet.theme} aria-pressed={theme===state.pet.theme} onClick={()=>void execute(()=>window.judge.switchProfile(theme),'')}><strong>{theme==='ocean'?'比奇堡版':'甄嬛传版'}</strong><small>{theme===state.pet.theme?'正在使用':'切换到此档案'}</small></button>)}</div></section>}
         <div className="intro">
           <div><span className="eyebrow">{palace?'甄嬛传 · 七位原创 Q 版宫廷人物':'七类人物，各有进场剧本'}</span><h3>{palace?'宫里来消息，本宫替你捋明白。':'谁来消息，谁的专属角色出场。'}</h3>
             <p>{palace?'皇上、甄嬛、华妃等七位人物，带着各自的台词和进场亮相。':'同一条消息，换个人发，就是另一出戏。'}</p>
@@ -256,7 +259,7 @@ function Panel({appInfo,state, ready, error, setError}: {
       {tab === '人物设置' && <>
         <WeddingMusicSettings state={state}/>
         <PetPreferences pet={state.pet} busy={!ready||busy} onSave={preferences=>void execute(()=>save(state.contacts,{...state.pet,...preferences}),'尺寸与音效已保存。')}/>
-        <div className="settings-title"><div><h3>{palace?'请一位宫廷人物，陪你批阅差事。':'选个待机角色，给每个人安排一张脸。'}</h3><p className="description">{palace?'本版只提供七位原创 Q 版宫廷人物。':'本版提供海洋人物与旧版骆驼。'}这里选择没有消息时的默认角色；来消息时使用联系人的角色，关闭卡片后恢复待机角色。联系人个人设置优先。</p></div></div>
+        <div className="settings-title"><div><h3>{palace?'请一位宫廷人物，陪你批阅差事。':'选个待机角色，给每个人安排一张脸。'}</h3><p className="description">{palace?'甄嬛传档案只提供七位原创 Q 版宫廷人物。':'比奇堡档案提供海洋人物与旧版骆驼。'}这里选择没有消息时的默认角色；来消息时使用联系人的角色，关闭卡片后恢复待机角色。联系人个人设置优先。</p></div></div>
         <div className="character-gallery" role="group" aria-label="七类消息人物">{roster.map(c =>
           <button type="button" className={'character-choice '+(characterDraft===c.id?'selected':'')} key={c.id}
             aria-label={c.name} aria-pressed={characterDraft===c.id} onClick={()=>setCharacterDraft(c.id)}>

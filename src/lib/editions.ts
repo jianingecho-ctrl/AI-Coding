@@ -17,12 +17,12 @@ export function editionDefaults(edition:Theme):State{
 }
 export function assertEditionContact(contact:Contact,edition:Theme){
  const character=contact.effects?.character;
- if(character&&character!=='auto'&&!editionCharacters(edition).includes(character))throw new Error('人物不属于当前独立版，请选择本版人物');
- if(edition==='ocean'&&contact.effects?.cardSkin==='palace')throw new Error('宫廷卡片不属于海洋独立版');
+ if(character&&character!=='auto'&&!editionCharacters(edition).includes(character))throw new Error('人物不属于当前档案，请选择当前主题人物');
+ if(edition==='ocean'&&contact.effects?.cardSkin==='palace')throw new Error('宫廷卡片不属于比奇堡档案');
 }
 export function assertEditionSettings(settings:Pick<State,'contacts'|'pet'>,edition:Theme){
- if(settings.pet.theme!==edition)throw new Error('独立版不能切换主题，请打开对应的独立应用');
- if(!editionCharacters(edition).includes(settings.pet.character))throw new Error('待机人物不属于当前独立版');
+ if(settings.pet.theme!==edition)throw new Error('请在测试面板切换档案，不能把另一主题配置写入当前档案');
+ if(!editionCharacters(edition).includes(settings.pet.character))throw new Error('待机人物不属于当前档案');
  for(const contact of settings.contacts)assertEditionContact(contact,edition);
 }
 // 兼容旧配置：恢复本版默认人物，保留消息正文、回复、名单、统计与素材。

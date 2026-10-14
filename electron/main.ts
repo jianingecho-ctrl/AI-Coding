@@ -3,7 +3,7 @@ import path from 'node:path';
 import {readFileSync,mkdirSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import {contactSchema,stateSchema,type State,type Message,type AppInfo} from '../src/lib/model';
+import {contactSchema,stateSchema,type State,type Message,type AppInfo,type Theme} from '../src/lib/model';
 import {messageEffects} from '../src/lib/effects';
 import {MessagePipeline} from './messages';
 import {Store} from './store';
@@ -15,18 +15,25 @@ import {editionDefinitions,editionDefaults,normalizeEditionState,assertEditionSe
 import {parseEdition,editionDataRoot,migrateLegacyOcean} from './editions';
 import {MessageDisplayQueue} from './message-queue';
 import {WeddingMusicService} from './music';
+import {ProfileRepository,unifiedIdentity} from './profiles';
 import {NotificationService} from './notifications';
 import {createNotificationAdapter} from './notification-adapter';
 import {notificationSettingsSchema} from '../src/lib/notifications';
 const editionFile=!app.isPackaged&&process.env.JUDGE_EDITION_FILE?process.env.JUDGE_EDITION_FILE:path.join(__dirname,'../../edition.json');
-const edition=parseEdition(readFileSync(editionFile,'utf8')),identity=editionDefinitions[edition];
+const deployment=parseEdition(readFileSync(editionFile,'utf8')),unified=deployment==='unified';
 const dataBase=process.env.JUDGE_DATA_DIR?path.resolve(process.env.JUDGE_DATA_DIR):app.getPath('appData');
-const dataRoot=editionDataRoot(dataBase,edition);
-mkdirSync(path.join(dataRoot,'session'),{recursive:true,mode:0o700});
-app.setName(identity.name);app.setPath('userData',dataRoot);app.setPath('sessionData',path.join(dataRoot,'session'));
-const appInfo:AppInfo={edition,name:identity.name,label:identity.label,version:app.getVersion(),appId:identity.appId,dataDirectory:dataRoot,migratedLegacy:false};
+const profiles=new ProfileRepository(dataBase);
+let edition:Theme=unified?'ocean':deployment as Theme;
+if(unified)try{edition=z.object({theme:z.enum(['ocean','palace'])}).parse(JSON.parse(readFileSync(path.join(profiles.root,'active-profile.json'),'utf8'))).theme}catch{}
+const identity=unified?unifiedIdentity:editionDefinitions[edition];
+const appRoot=unified?profiles.root:editionDataRoot(dataBase,edition);
+let dataRoot=unified?profiles.directory(edition):appRoot;
+mkdirSync(path.join(appRoot,'session'),{recursive:true,mode:0o700});
+app.setName(identity.name);app.setPath('userData',appRoot);app.setPath('sessionData',path.join(appRoot,'session'));
+const appInfo:AppInfo={edition,name:identity.name,label:unified?(edition==='palace'?'甄嬛传档案':'比奇堡档案'):identity.label,version:app.getVersion(),appId:identity.appId,dataDirectory:dataRoot,migratedLegacy:false,canSwitch:unified};
+let switching=false,profileEpoch=0;
 const expected=process.argv.find(a=>a.startsWith('--expect-edition=')||a.startsWith('--theme='))?.split('=')[1];
-const editionMismatch=Boolean(expected&&expected!==edition);
+const editionMismatch=Boolean(expected&&expected!==deployment);
 const primary=editionMismatch?false:app.requestSingleInstanceLock({edition});
 if(!primary&&!editionMismatch)app.quit();
 let pet:BrowserWindow|null=null;
@@ -50,10 +57,10 @@ function load(window:BrowserWindow,view:string){
 function options(){return {preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true};}
 function openPanel(){
  if(panel&&!panel.isDestroyed()){panel.show();panel.focus();return;}
- panel=new BrowserWindow({width:1020,height:820,minWidth:800,minHeight:640,title:identity.name+' · 控制台',backgroundColor:edition==='palace'?'#fff6e2':'#d3f0fc',webPreferences:options()});
+ panel=new BrowserWindow({width:1020,height:820,minWidth:800,minHeight:640,title:identity.name+' · '+appInfo.label+' · 控制台',backgroundColor:edition==='palace'?'#fff6e2':'#d3f0fc',webPreferences:options()});
  load(panel,'panel');panel.on('closed',()=>{panel=null;});
 }
-function broadcast(state:State){for(const w of BrowserWindow.getAllWindows())w.webContents.send('state:changed',state);}
+function broadcast(state:State){if(state.pet.theme!==edition)return;for(const w of BrowserWindow.getAllWindows())w.webContents.send('state:changed',state);}
 function resizePet(expanded:boolean){
  petExpanded=expanded;
  if(!pet||pet.isDestroyed())return;
@@ -61,7 +68,7 @@ function resizePet(expanded:boolean){
  pet.setBounds(resizedPetBounds(previous,area,store.get().pet.scale,expanded));
 }
 function deliver(message:Message){
- if(!pet||pet.isDestroyed())return;
+ if(message.effect?.theme!==edition||!pet||pet.isDestroyed())return;
  resizePet(true);
  const effect=messageEffects(message);
  if(effect.entry==='slide'){
@@ -71,51 +78,65 @@ function deliver(message:Message){
  }
  pet.show();pet.webContents.send('message:new',message);
 }
+async function activateProfile(theme:Theme){
+ let target:Store,migrated=false;
+ const directory=unified?profiles.directory(theme):editionDataRoot(dataBase,theme);
+ if(unified){const loaded=await profiles.load(theme);target=loaded.store;migrated=loaded.migrated;}
+ else{if(theme==='ocean')migrated=await migrateLegacyOcean(directory,[path.join(dataBase,'workplace-little-judge'),path.join(dataBase,'职场小判官')]);target=new Store(path.join(directory,'judge-state.json'),editionDefaults(theme),state=>normalizeEditionState(state,theme));await target.load();}
+ const notificationBinary=app.isPackaged?path.join(process.resourcesPath,'notification-tools','NotificationCapture-'+process.arch):path.join(__dirname,'../../native/bin','NotificationCapture-'+process.arch);
+ const adapter=await createNotificationAdapter(notificationBinary,!app.isPackaged?process.env.JUDGE_NOTIFICATION_FIXTURE:undefined);
+ // 先完成目标档案加载，再切换引用；旧异步结果只可能留在原档案。
+ notifications?.stop();displayQueue?.clear();edition=theme;dataRoot=directory;store=target;profileEpoch++;const epoch=profileEpoch,isCurrent=()=>store===target&&epoch===profileEpoch;
+ assetRoot=path.join(directory,'assets');const ownerCredentials=new Credentials(path.join(directory,'ai-key.enc'));credentials=ownerCredentials;
+ messages=new MessagePipeline(target,()=>ownerCredentials.get());interactions=new InteractionService(target);music=new WeddingMusicService(target,path.join(directory,'audio'));
+ const clearPet=()=>{if(!isCurrent())return;resizePet(false);for(const w of BrowserWindow.getAllWindows())w.webContents.send('message:clear');};
+ displayQueue=new MessageDisplayQueue(message=>{if(isCurrent())deliver(message)},clearPet,status=>{if(isCurrent())for(const w of BrowserWindow.getAllWindows())w.webContents.send('queue:changed',status)});
+ const ownerQueue=displayQueue;
+ notifications=new NotificationService(target,messages,adapter,status=>{if(isCurrent())for(const w of BrowserWindow.getAllWindows())w.webContents.send('notifications:changed',status)},message=>{if(isCurrent()){broadcast(target.get());ownerQueue.push(message)}});
+ Object.assign(appInfo,{edition:theme,label:unified?(theme==='palace'?'甄嬛传档案':'比奇堡档案'):editionDefinitions[theme].label,dataDirectory:directory,migratedLegacy:migrated});
+ pet?.setAlwaysOnTop(target.get().pet.alwaysOnTop,'floating');resizePet(false);panel?.setBackgroundColor(theme==='palace'?'#fff6e2':'#d3f0fc');panel?.setTitle(identity.name+' · '+appInfo.label+' · 控制台');
+ if(process.platform==='darwin'&&app.dock){app.dock.setBadge(theme==='palace'?'宫':'海');app.dock.setIcon(nativeImage.createFromPath(path.join(__dirname,'../../dist/characters',theme==='palace'?'palace_zhenhuan.png':'npc.png')));}
+}
 if(editionMismatch)app.whenReady().then(()=>{dialog.showErrorBox('请使用对应的独立版',`当前目录是${identity.name}，请下载并打开另一版的独立文件夹。两版不能切换。`);app.exit(1);});
 if(primary)app.whenReady().then(async()=>{
- if(process.platform==='darwin'&&app.dock){app.dock.setBadge(edition==='palace'?'宫':'海');app.dock.setIcon(nativeImage.createFromPath(path.join(__dirname,'../../dist/characters',edition==='palace'?'palace_zhenhuan.png':'npc.png')));}
- if(edition==='ocean')appInfo.migratedLegacy=await migrateLegacyOcean(dataRoot,[path.join(dataBase,'workplace-little-judge'),path.join(dataBase,'职场小判官')]);
- store=new Store(path.join(dataRoot,'judge-state.json'),editionDefaults(edition),s=>normalizeEditionState(s,edition));await store.load();
- assetRoot=path.join(app.getPath('userData'),'assets');
- credentials=new Credentials(path.join(app.getPath('userData'),'ai-key.enc'));
- messages=new MessagePipeline(store,()=>credentials.get());
- interactions=new InteractionService(store);
- music=new WeddingMusicService(store,path.join(dataRoot,'audio'));
- const clearPet=()=>{resizePet(false);for(const w of BrowserWindow.getAllWindows())w.webContents.send('message:clear');};
- displayQueue=new MessageDisplayQueue(deliver,clearPet,status=>{for(const w of BrowserWindow.getAllWindows())w.webContents.send('queue:changed',status)});
- const notificationBinary=app.isPackaged?path.join(process.resourcesPath,'notification-tools','NotificationCapture-'+process.arch):path.join(__dirname,'../../native/bin','NotificationCapture-'+process.arch);
- const notificationAdapter=await createNotificationAdapter(notificationBinary,!app.isPackaged?process.env.JUDGE_NOTIFICATION_FIXTURE:undefined);
- notifications=new NotificationService(store,messages,notificationAdapter,status=>{for(const window of BrowserWindow.getAllWindows())window.webContents.send('notifications:changed',status)},message=>{broadcast(store.get());displayQueue.push(message)});
+ await activateProfile(edition);
  const area=screen.getPrimaryDisplay().workArea;
  const size=petWindowSize(store.get().pet.scale,false);
  pet=new BrowserWindow({...size,x:Math.max(area.x,area.x+area.width-size.width-20),y:Math.max(area.y,area.y+area.height-size.height-20),transparent:true,frame:false,alwaysOnTop:true,resizable:false,hasShadow:false,skipTaskbar:true,webPreferences:options()});
  pet.setAlwaysOnTop(store.get().pet.alwaysOnTop,'floating');pet.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});load(pet,'pet');
  pet.on('closed',()=>{pet=null;app.quit();});
  Menu.setApplicationMenu(Menu.buildFromTemplate([{label:identity.name,submenu:[{label:'打开控制台',click:openPanel},{label:'显示桌宠',click:()=>pet?.show()},{label:'隐藏桌宠',click:()=>{openPanel();pet?.hide()}},{label:'退出'+identity.name,click:()=>app.quit()}]},{label:'编辑',submenu:[{label:'撤销',role:'undo'},{label:'重做',role:'redo'},{type:'separator'},{label:'剪切',role:'cut'},{label:'复制',role:'copy'},{label:'粘贴',role:'paste'},{label:'全选',role:'selectAll'}]}]));
- ipcMain.handle('app:info',()=>appInfo);
- ipcMain.handle('state:get',()=>store.get());
+ const handle=(channel:string,listener:(event:Electron.IpcMainInvokeEvent,...args:any[])=>unknown)=>ipcMain.handle(channel,async(event,...args)=>{if(switching)throw new Error('正在切换档案，请稍候。');const epoch=profileEpoch;const result=await listener(event,...args);if(epoch!==profileEpoch)throw new Error('档案已切换，本次操作结果不再显示。');return result;});
+ handle('app:info',()=>appInfo);
+ handle('state:get',()=>store.get());
  const requirePanel=(event:Electron.IpcMainInvokeEvent)=>{if(event.sender.id!==panel?.webContents.id)throw new Error('请通过控制台操作通知识别。');};
- ipcMain.handle('notifications:status',()=>notifications.get());
- ipcMain.handle('notifications:save',async(event,input)=>{requirePanel(event);notifications.stop();const settings=notificationSettingsSchema.parse(input);const state=await store.update(s=>({...s,notifications:settings}));broadcast(state);return state;});
- ipcMain.handle('notifications:once',(event,delay,preview)=>{requirePanel(event);return notifications.once(z.number().int().min(0).max(10).default(0).parse(delay),z.boolean().default(false).parse(preview));});
- ipcMain.handle('notifications:start',(event)=>{requirePanel(event);return notifications.start();});
- ipcMain.handle('notifications:stop',(event)=>{requirePanel(event);return notifications.stop();});
- ipcMain.handle('notifications:confirm',(event,input)=>{requirePanel(event);return notifications.confirm(z.object({draftId:z.string().uuid(),contactId:z.string().min(1).max(100),text:z.string().trim().min(1).max(5000)}).parse(input));});
- ipcMain.handle('notifications:dismiss',(event,id)=>{requirePanel(event);return notifications.dismiss(z.string().uuid().parse(id));});
- ipcMain.handle('notifications:clear',(event)=>{requirePanel(event);return notifications.clear();});
- ipcMain.handle('clipboard:copy',(_,text)=>{clipboard.writeText(z.string().trim().min(1).max(5000).parse(text));});
- ipcMain.handle('settings:save',async(_,input)=>{
-  const settings=z.object({contacts:z.array(contactSchema).max(100),pet:stateSchema.shape.pet,ai:stateSchema.shape.ai.optional()}).parse(input);
+ ipcMain.handle('profile:switch',async(event,input)=>{
+  requirePanel(event);if(!unified)throw new Error('请打开双主题版再切换档案。');if(switching)throw new Error('正在切换档案，请稍候。');const theme=z.enum(['ocean','palace']).parse(input);
+  if(theme===edition)return {info:{...appInfo},state:store.get()};
+  switching=true;notifications.stop();
+  try{await profiles.load(theme);await profiles.remember(theme);await activateProfile(theme);const value={info:{...appInfo},state:store.get()};for(const w of BrowserWindow.getAllWindows())w.webContents.send('profile:changed',value);return value;}finally{switching=false;}
+ });
+ handle('notifications:status',()=>notifications.get());
+ handle('notifications:save',async(event,input)=>{requirePanel(event);notifications.stop();const settings=notificationSettingsSchema.parse(input);const state=await store.update(s=>({...s,notifications:settings}));broadcast(state);return state;});
+ handle('notifications:once',(event,delay,preview)=>{requirePanel(event);return notifications.once(z.number().int().min(0).max(10).default(0).parse(delay),z.boolean().default(false).parse(preview));});
+ handle('notifications:start',(event)=>{requirePanel(event);return notifications.start();});
+ handle('notifications:stop',(event)=>{requirePanel(event);return notifications.stop();});
+ handle('notifications:confirm',(event,input)=>{requirePanel(event);return notifications.confirm(z.object({draftId:z.string().uuid(),contactId:z.string().min(1).max(100),text:z.string().trim().min(1).max(5000)}).parse(input));});
+ handle('notifications:dismiss',(event,id)=>{requirePanel(event);return notifications.dismiss(z.string().uuid().parse(id));});
+ handle('notifications:clear',(event)=>{requirePanel(event);return notifications.clear();});
+ handle('clipboard:copy',(_,text)=>{clipboard.writeText(z.string().trim().min(1).max(5000).parse(text));});
+ handle('settings:save',async(_,input)=>{
+  const owner=store;const settings=z.object({contacts:z.array(contactSchema).max(100),pet:stateSchema.shape.pet,ai:stateSchema.shape.ai.optional()}).parse(input);
   assertEditionSettings(settings,edition);
   if(new Set(settings.contacts.map(c=>c.id)).size!==settings.contacts.length)throw new Error('联系人标识重复');
-  const state=await store.update(s=>({...s,contacts:settings.contacts,pet:settings.pet,ai:settings.ai??s.ai}));pet?.setAlwaysOnTop(state.pet.alwaysOnTop,'floating');resizePet(petExpanded);broadcast(state);return state;
+  const state=await owner.update(s=>({...s,contacts:settings.contacts,pet:settings.pet,ai:settings.ai??s.ai}));if(store===owner){pet?.setAlwaysOnTop(state.pet.alwaysOnTop,'floating');resizePet(petExpanded);broadcast(state);}return state;
  });
- ipcMain.handle('message:send',async(_,input)=>{
-  const data=z.object({contactId:z.string(),text:z.string()}).parse(input);
+ handle('message:send',async(_,input)=>{
+  const owner=store,queue=displayQueue;const data=z.object({contactId:z.string(),text:z.string()}).parse(input);
   const message=await messages.receive({source:'mock',senderId:data.contactId,text:data.text});
-  broadcast(store.get());displayQueue.force(message);return message;
+  if(store===owner){broadcast(owner.get());queue.force(message);}return message;
  });
- ipcMain.handle('message:reply',async(_,input)=>{
+ handle('message:reply',async(_,input)=>{
   const data=z.object({messageId:z.string(),text:z.string().trim().min(1).max(2000)}).parse(input);
   let updated:Message|undefined;
   const state=await store.update(s=>({...s,history:s.history.map(m=>{
@@ -126,31 +147,32 @@ if(primary)app.whenReady().then(async()=>{
   if(!updated)throw new Error('消息不存在；预览消息不能回复');
   broadcast(state);return updated;
  });
- ipcMain.handle('message:restore',(_,id)=>{const message=store.get().history.find(m=>m.id===id);if(!message)throw new Error('历史消息不存在');displayQueue.force(message);return message;});
- ipcMain.handle('effect:preview',(_,input)=>{assertEditionContact(contactSchema.parse(input),edition);const message=messages.preview(input);displayQueue.force(message);return message;});
- ipcMain.handle('interaction:record',async(_,input)=>{const row=await interactions.record(input);broadcast(store.get());return row;});
- ipcMain.handle('interaction:clear',async()=>{const state=await interactions.clear();broadcast(state);return state;});
- ipcMain.handle('pet:expanded',(event,input)=>{if(event.sender.id!==pet?.webContents.id)throw new Error('仅桌宠窗口可调整显示尺寸');resizePet(z.boolean().parse(input));});
- ipcMain.handle('message:clear',()=>displayQueue.clear());
- ipcMain.handle('queue:get',()=>displayQueue.get());
- ipcMain.handle('queue:advance',(_,id)=>displayQueue.advance(z.string().parse(id)));
- ipcMain.handle('queue:hold',(_,input)=>{const data=z.object({id:z.string(),hold:z.boolean()}).parse(input);displayQueue.hold(data.id,data.hold)});
- ipcMain.handle('music:import',async(event)=>{requirePanel(event);const result=await dialog.showOpenDialog(panel!,{title:'选择嫁给ta的本地前奏音乐',properties:['openFile'],filters:[{name:'音频（最大15MB）',extensions:['mp3','wav','m4a','ogg']}]});if(result.canceled)return store.get();const state=await music.import(result.filePaths[0]);broadcast(state);return state;});
- ipcMain.handle('music:read',()=>music.read());
- ipcMain.handle('music:clear',async(event)=>{requirePanel(event);const state=await music.clear();broadcast(state);return state;});
- ipcMain.handle('history:clear',async()=>{notifications.clear();const state=await messages.clearHistory();broadcast(state);displayQueue.clear();return state;});
- ipcMain.handle('asset:import',async()=>{
+ handle('message:restore',(_,id)=>{const message=store.get().history.find(m=>m.id===id);if(!message)throw new Error('历史消息不存在');displayQueue.force(message);return message;});
+ handle('effect:preview',(_,input)=>{assertEditionContact(contactSchema.parse(input),edition);const message=messages.preview(input);displayQueue.force(message);return message;});
+ handle('interaction:record',async(_,input)=>{const owner=store;const row=await interactions.record(input);broadcast(owner.get());return row;});
+ handle('interaction:clear',async()=>{const state=await interactions.clear();broadcast(state);return state;});
+ handle('pet:expanded',(event,input)=>{if(event.sender.id!==pet?.webContents.id)throw new Error('仅桌宠窗口可调整显示尺寸');resizePet(z.boolean().parse(input));});
+ handle('message:clear',()=>displayQueue.clear());
+ handle('queue:get',()=>displayQueue.get());
+ handle('queue:advance',(_,id)=>displayQueue.advance(z.string().parse(id)));
+ handle('queue:hold',(_,input)=>{const data=z.object({id:z.string(),hold:z.boolean()}).parse(input);displayQueue.hold(data.id,data.hold)});
+ handle('music:import',async(event)=>{requirePanel(event);const owner=store,ownerMusic=music,epoch=profileEpoch;const result=await dialog.showOpenDialog(panel!,{title:'选择嫁给ta的本地前奏音乐',properties:['openFile'],filters:[{name:'音频（最大15MB）',extensions:['mp3','wav','m4a','ogg']}]});if(profileEpoch!==epoch)throw new Error('档案已切换，请重新选择音乐。');if(result.canceled)return owner.get();const state=await ownerMusic.import(result.filePaths[0]);broadcast(state);return state;});
+ handle('music:read',()=>music.read());
+ handle('music:clear',async(event)=>{requirePanel(event);const state=await music.clear();broadcast(state);return state;});
+ handle('history:clear',async()=>{const queue=displayQueue;notifications.clear();const state=await messages.clearHistory();broadcast(state);queue.clear();return state;});
+ handle('asset:import',async()=>{
+  const owner=store,root=assetRoot,epoch=profileEpoch;
   if(store.get().assets.length>=100)throw new Error('素材库最多保存 100 组素材');
   const result=await dialog.showOpenDialog(panel??pet!,{title:'上传人物图片 / GIF / 序列帧',properties:['openFile','multiSelections'],filters:[{name:'人物素材',extensions:['png','jpg','jpeg','webp','gif']}]});
-  if(result.canceled)return null;
-  const asset=await importFiles(result.filePaths,assetRoot,file=>path.extname(file).toLowerCase()==='.gif'?/^GIF8[79]a$/.test(readFileSync(file).subarray(0,6).toString('ascii')):!nativeImage.createFromPath(file).isEmpty());
-  const state=await store.update(s=>({...s,assets:[...s.assets,asset]}));broadcast(state);return asset;
+  if(profileEpoch!==epoch)throw new Error('档案已切换，请重新选择素材。');if(result.canceled)return null;
+  const asset=await importFiles(result.filePaths,root,file=>path.extname(file).toLowerCase()==='.gif'?/^GIF8[79]a$/.test(readFileSync(file).subarray(0,6).toString('ascii')):!nativeImage.createFromPath(file).isEmpty());
+  const state=await owner.update(s=>({...s,assets:[...s.assets,asset]}));broadcast(state);return asset;
  });
- ipcMain.handle('asset:frames',(_,id)=>{const asset=store.get().assets.find(a=>a.id===id);if(!asset)throw new Error('素材不存在');return readFrames(asset,assetRoot);});
- ipcMain.handle('ai:key-save',(_,input)=>credentials.save(z.string().trim().max(1000).parse(input)));
- ipcMain.handle('ai:key-status',()=>credentials.has());
- ipcMain.handle('pet:hide',()=>{openPanel();pet?.hide();});ipcMain.handle('pet:show',()=>pet?.show());
- ipcMain.handle('panel:open',openPanel);ipcMain.handle('app:quit',()=>app.quit());
+ handle('asset:frames',(_,id)=>{const asset=store.get().assets.find(a=>a.id===id);if(!asset)throw new Error('素材不存在');return readFrames(asset,assetRoot);});
+ handle('ai:key-save',(_,input)=>credentials.save(z.string().trim().max(1000).parse(input)));
+ handle('ai:key-status',()=>credentials.has());
+ handle('pet:hide',()=>{openPanel();pet?.hide();});ipcMain.handle('pet:show',()=>pet?.show());
+ handle('panel:open',openPanel);ipcMain.handle('app:quit',()=>app.quit());
  initialized=true;openPanel();
 });
 app.on('second-instance',()=>{if(initialized&&app.isReady()){openPanel();pet?.show();}});

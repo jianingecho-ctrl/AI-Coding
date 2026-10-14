@@ -2,6 +2,8 @@ import {contextBridge,ipcRenderer} from 'electron';
 import type { Bridge,State,Message } from '../src/lib/model';
 import type {NotificationStatus} from '../src/lib/notifications';
 const bridge:Bridge={
+ switchProfile:theme=>ipcRenderer.invoke('profile:switch',theme),
+ onProfile:callback=>{const listener=(_:unknown,value:Parameters<typeof callback>[0])=>callback(value);ipcRenderer.on('profile:changed',listener);return()=>ipcRenderer.removeListener('profile:changed',listener);},
  importWeddingMusic:()=>ipcRenderer.invoke('music:import'),clearWeddingMusic:()=>ipcRenderer.invoke('music:clear'),getWeddingAudio:()=>ipcRenderer.invoke('music:read'),
  getMessageQueue:()=>ipcRenderer.invoke('queue:get'),advanceMessage:id=>ipcRenderer.invoke('queue:advance',id),holdMessage:(id,hold)=>ipcRenderer.invoke('queue:hold',{id,hold}),
  onMessageQueue:callback=>{const listener=(_:unknown,status:Parameters<typeof callback>[0])=>callback(status);ipcRenderer.on('queue:changed',listener);return()=>ipcRenderer.removeListener('queue:changed',listener);},
