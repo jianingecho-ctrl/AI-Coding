@@ -24,6 +24,6 @@ const {mkdir}=require('node:fs/promises');
   await panel.getByRole('button',{name:'比奇堡版 切换到此档案',exact:true}).click();await expect(pet.locator('.pet-stage')).toHaveAttribute('data-theme','ocean');
   const restored=await panel.evaluate(()=>window.judge.getState());expect(restored.history[0].text).toContain('Windows安装验收');expect(restored.interactions.reduce((total,row)=>total+row.counts.kick,0)).toBe(1);expect(errors).toEqual([]);
   console.log('真实 Windows 已安装 EXE 通过：双主题人物、模拟消息、飞踢互动、统计持久化、主题隔离、Windows 通知入口及重启恢复。未读取真实通知或验证扬声器。');
- }catch(error){console.error('::error title=已安装程序诊断::'+String(error.stack||error).concat('\n',processLog.join('')).replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A'));if(app)for(const page of app.windows())await page.screenshot({path:'test-results/windows-installed-failed-'+(page.url().includes('view=pet')?'pet':'panel')+'.png'}).catch(()=>{});throw error}
+ }catch(error){console.log('::error title=已安装程序诊断::'+String(error.stack||error).concat('\n',processLog.join('')).replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A'));if(app)for(const page of app.windows())await page.screenshot({path:'test-results/windows-installed-failed-'+(page.url().includes('view=pet')?'pet':'panel')+'.png'}).catch(()=>{});throw error}
  finally{if(app)await app.close().catch(()=>{})}
 })().catch(error=>{console.error(error);process.exitCode=1});

@@ -1,6 +1,6 @@
 {
   "name": "workplace-little-judge-unified",
-  "version": "0.12.1",
+  "version": "0.12.2",
   "private": true,
   "description": "职场小判官：比奇堡与甄嬛传双主题，分档保存",
   "author": "职场小判官",
@@ -121,6 +121,7 @@
     "nsis": {
       "oneClick": false,
       "perMachine": false,
+      "packElevateHelper": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,

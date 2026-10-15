@@ -1,8 +1,8 @@
-# 职场小判官 · 0.12.1 双主题版 / Windows 体验版
+# 职场小判官 · 0.12.2 双主题版 / Windows 体验版
 
 使用 Electron + React + TypeScript 的桌面趣味消息助手。一个应用内置比奇堡、甄嬛传两套风格，在测试面板切换。六个板块和桌面人物一起切换，联系人、消息历史、回复、互动次数、素材、音乐、AI 配置及密钥分档保存。
 
-Windows 10/11 x64 用户：[下载 EXE 安装包](https://github.com/jianingecho-ctrl/AI-Coding/releases/download/windows-v0.12.1/WorkJudge-Setup-0.12.1-x64.exe)，双击中文向导安装，无需开发工具。详见 [Windows 安装教程](docs/Windows安装使用教程.md)。这是未签名的体验版，真实 Windows 安装、窗口及通知 OCR 尚需本机验收，通知页面明确标为实验功能。
+Windows 10/11 x64 用户：[下载 EXE 安装包](https://github.com/jianingecho-ctrl/AI-Coding/releases/download/windows-v0.12.2/WorkJudge-Setup-0.12.2-x64.exe)，双击中文向导安装，无需开发工具。详见 [Windows 安装教程](docs/Windows安装使用教程.md)。这是未签名的体验版，真实 Windows 安装、窗口及通知 OCR 尚需本机验收，通知页面明确标为实验功能。
 
 Mac 已有的 [0.11.0 双主题源码 ZIP](https://github.com/jianingecho-ctrl/AI-Coding/archive/refs/tags/unified-v0.11.0.zip)仍可使用。分享源码包给 Mac 同事的完整步骤见 [转发教程](docs/把Mac源码包分享给同事.md)。解压后双击「启动双主题版.command」，或在文件夹内执行：
 
@@ -93,7 +93,7 @@ Windows 打包：
 npm run pack:win
 ```
 
-结果为 `release/unified/WorkJudge-Setup-0.12.1-x64.exe`。云端可构建并检查 NSIS 内容；不能代替真实 Windows 安装、系统截图、OCR 和声音验收。Windows 脚本的语法及内嵌 C# 可在 PowerShell 解析器中检查，Windows API 仍须本机执行。
+结果为 `release/unified/WorkJudge-Setup-0.12.2-x64.exe`。云端可构建并检查 NSIS 内容；不能代替真实 Windows 安装、系统截图、OCR 和声音验收。Windows 脚本的语法及内嵌 C# 可在 PowerShell 解析器中检查，Windows API 仍须本机执行。
 
 ## 目录
 

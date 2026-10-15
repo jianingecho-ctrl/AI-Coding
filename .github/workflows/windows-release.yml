@@ -39,7 +39,28 @@ jobs:
           if ($frame.status -notin @('no-text','unsupported')) { throw ($frame | ConvertTo-Json -Compress) }
           Write-Host "::notice title=Windows OCR 接口检查::$($frame.status)：$($frame.message)"
       - name: 构建 Windows x64 安装器
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          New-Item -ItemType Directory -Force release/unified | Out-Null
+          $version = node -p "require('./package.json').version"
+          $tag = 'windows-v'+$version
+          $fingerprint = node scripts/windows-source-fingerprint.cjs
+          $reuse = $false
+          $existing = gh release view $tag --json isDraft 2>$null | ConvertFrom-Json
+          if ($LASTEXITCODE -eq 0) {
+            if (-not $existing.isDraft) { throw '版本已经发布，请升版本后构建。' }
+            gh release download $tag --pattern build-fingerprint.txt --dir release/unified --clobber 2>$null
+            if ($LASTEXITCODE -eq 0 -and (Get-Content release/unified/build-fingerprint.txt).Trim() -eq $fingerprint) {
+              gh release download $tag --pattern "WorkJudge-Setup-$version-x64.exe" --pattern SHA256SUMS.txt --dir release/unified --clobber
+              if ($LASTEXITCODE -eq 0) {
+                $expected = (Get-Content release/unified/SHA256SUMS.txt).Split(' ')[0]
+                $actual = (Get-FileHash "release/unified/WorkJudge-Setup-$version-x64.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
+                if ($expected -eq $actual) { $reuse = $true }
+              }
+            }
+          }
+          if ($reuse) { Write-Host '相同构建输入的草稿候选包通过SHA256校验，本轮继续安装验收。'; exit 0 }
           & npm run pack:win 2>&1 | Tee-Object -Variable judgeBuildOutput
           $code = $LASTEXITCODE
           if ($code -ne 0) {
@@ -47,6 +68,26 @@ jobs:
             Write-Host "::error title=Windows打包详细错误::$tail"
             exit $code
           }
+      - name: 缓存未发布的候选包以加速后续诊断
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = node -p "require('./package.json').version"
+          $tag = 'windows-v'+$version
+          $name = "WorkJudge-Setup-$version-x64.exe"
+          $hash = (Get-FileHash "release/unified/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $name" | Set-Content -Encoding utf8NoBOM release/unified/SHA256SUMS.txt
+          node scripts/windows-source-fingerprint.cjs | Set-Content -Encoding utf8NoBOM release/unified/build-fingerprint.txt
+          $existing = gh release view $tag --json isDraft 2>$null | ConvertFrom-Json
+          if ($LASTEXITCODE -eq 0) {
+            if (-not $existing.isDraft) { throw '已发布版本不能写入候选包' }
+          } else {
+            gh release create $tag --draft --prerelease --verify-tag --title "职场小判官 $version · Windows体验版" --notes '候选包正在验收，未对外发布。'
+            if ($LASTEXITCODE -ne 0) { throw '候选包缓存不可用，后续安装验证仍继续。' }
+          }
+          gh release upload $tag "release/unified/$name" release/unified/SHA256SUMS.txt release/unified/build-fingerprint.txt --clobber
+          if ($LASTEXITCODE -ne 0) { throw '候选包缓存失败，后续安装验证仍继续。' }
       - name: 验证真实 Windows 安装与应用启动
         run: |
           try {
@@ -58,8 +99,12 @@ jobs:
           $env:JUDGE_WINDOWS_APP = Join-Path $installRoot '职场小判官.exe'
           if (-not (Test-Path $env:JUDGE_WINDOWS_APP)) { throw '安装后主程序不存在' }
           $env:JUDGE_WINDOWS_DATA = Join-Path $env:RUNNER_TEMP 'judge-windows-test-data'
-          node tests/windows-installed-desktop.cjs
-          if ($LASTEXITCODE -ne 0) { throw '已安装应用功能验收失败' }
+          & node tests/windows-installed-desktop.cjs 2>&1 | Tee-Object -Variable judgeAppOutput
+          if ($LASTEXITCODE -ne 0) {
+            $appTail = (($judgeAppOutput | Select-Object -Last 100) -join "`n").Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+            Write-Host "::error title=已安装EXE测试输出::$appTail"
+            throw '已安装应用功能验收失败'
+          }
           'INSTALL_ROOT='+$installRoot >> $env:GITHUB_ENV
           'TEST_DATA_ROOT='+$env:JUDGE_WINDOWS_DATA >> $env:GITHUB_ENV
           } catch {
@@ -78,6 +123,8 @@ jobs:
           for ($i=0; $i -lt 30 -and (Test-Path $exe); $i++) { Start-Sleep -Seconds 1 }
           if (Test-Path $exe) { throw '卸载后程序文件仍存在' }
           if ((Get-Content -LiteralPath $personal).Trim() -ne 'keep-user-file') { throw '卸载错误删除了用户文件' }
+          $remaining = @(Get-ChildItem -LiteralPath $env:INSTALL_ROOT -File -Recurse)
+          if ($remaining.Count -ne 1 -or $remaining[0].FullName -ne $personal) { throw '卸载后仍残留程序文件' }
           $dataFile = Join-Path $env:TEST_DATA_ROOT 'workplace-little-judge-unified/profiles/ocean/judge-state.json'
           if (-not (Test-Path $dataFile)) { throw '卸载错误删除了本地档案' }
       - name: 生成校验及版本说明
