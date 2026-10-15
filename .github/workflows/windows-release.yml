@@ -49,6 +49,7 @@ jobs:
           }
       - name: 验证真实 Windows 安装与应用启动
         run: |
+          try {
           $version = node -p "require('./package.json').version"
           $installer = (Resolve-Path "release/unified/WorkJudge-Setup-$version-x64.exe").Path
           $installRoot = Join-Path $env:RUNNER_TEMP '小判官 安装验收'
@@ -61,6 +62,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw '已安装应用功能验收失败' }
           'INSTALL_ROOT='+$installRoot >> $env:GITHUB_ENV
           'TEST_DATA_ROOT='+$env:JUDGE_WINDOWS_DATA >> $env:GITHUB_ENV
+          } catch {
+            $detail = ($_ | Out-String).Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+            Write-Host "::error title=Windows安装或启动详细错误::$detail"
+            throw
+          }
       - name: 验证真实卸载与用户文件保留
         run: |
           $personal = Join-Path $env:INSTALL_ROOT '用户自己放的文件.txt'
