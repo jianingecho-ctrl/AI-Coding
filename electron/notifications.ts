@@ -35,7 +35,7 @@ export class NotificationService{
   this.requireAvailable();this.generation++;this.status.state='capturing';this.status.error='';delete this.status.lastResult;this.publish();
   await this.scan(this.generation,false,previewOnly,delaySeconds);if(this.status.state==='capturing')this.status.state='paused';this.publish();return this.get();
  }
- private requireAvailable(){if(!this.adapter.available)throw new Error('通知识别需要 macOS 15.2+ 和已构建的原生模块。请在 Mac 执行 npm run build；其他平台仍可使用模拟消息。');}
+ private requireAvailable(){if(!this.adapter.available)throw new Error('通知识别模块不可用。Mac 需要 macOS 15.2+ 和原生模块；Windows 请使用完整安装包及系统 PowerShell。模拟消息仍可使用。');}
  private schedule(generation:number){if(generation===this.generation&&this.status.state==='watching')this.timer=setTimeout(()=>void this.scan(generation).then(()=>this.schedule(generation)),this.store.get().notifications.intervalSeconds*1000);}
  private async scan(generation:number,baseline=false,manual=false,delaySeconds=0){
   if(this.busy)return;this.busy=true;this.abort=new AbortController();

@@ -206,7 +206,7 @@ function Panel({appInfo,state, ready, error, setError}: {
         <p className="footnote">默认规则解析，未调用 AI。可选本机 Ollama 或在线 AI；未配置密钥或服务不可用时明确提示降级。相对日期保留原文，请核对消息。</p>
       </>}
 
-      {tab==='飞书通知'&&<NotificationPanel state={state}/>}
+      {tab==='飞书通知'&&<NotificationPanel state={state} platform={appInfo.platform}/>}
 
       {tab === '联系人' && <>
         <p className="description">先选择发消息的人，再指定专属角色、进场方式、卡片皮肤、搞笑特效和台词，人物动作统一保持轻微晃动。历史保留收到消息时的效果。</p>

@@ -7,7 +7,7 @@ export class Credentials{
  async get(){try{if(!safeStorage.isEncryptionAvailable())return '';return safeStorage.decryptString(await fs.readFile(this.file));}catch{return '';}}
  async save(key:string){
   if(!key){await fs.rm(this.file,{force:true});return;}
-  if(!safeStorage.isEncryptionAvailable()||(process.platform==='linux'&&safeStorage.getSelectedStorageBackend()==='basic_text'))throw new Error('系统安全存储不可用，无法保存 API Key。请在 Mac 上使用。');
+  if(!safeStorage.isEncryptionAvailable()||(process.platform==='linux'&&safeStorage.getSelectedStorageBackend()==='basic_text'))throw new Error('系统安全存储不可用，无法加密保存 API Key。请检查当前电脑的系统凭据服务。');
   await fs.mkdir(path.dirname(this.file),{recursive:true});await fs.writeFile(this.file,safeStorage.encryptString(key),{mode:0o600});
  }
 }

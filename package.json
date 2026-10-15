@@ -1,6 +1,6 @@
 {
   "name": "workplace-little-judge-unified",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": true,
   "description": "职场小判官：比奇堡与甄嬛传双主题，分档保存",
   "author": "职场小判官",
@@ -19,7 +19,9 @@
     "build:native": "node scripts/build-native.mjs",
     "test:notifications": "npm run build && node tests/notifications-desktop.cjs",
     "test:priority": "npm run build && node tests/priority-interactions-desktop.cjs",
-    "test:unified": "npm run build && node tests/unified-desktop.cjs"
+    "test:unified": "npm run build && node tests/unified-desktop.cjs",
+    "pack:win": "npm run build && electron-builder --win nsis --x64 --publish never",
+    "pack:win:dir": "npm run build && electron-builder --win --x64 --dir --publish never"
   },
   "dependencies": {
     "lottie-web": "^5.13.0",
@@ -50,11 +52,16 @@
       "dist/**/*",
       "dist-electron/**/*",
       "package.json",
-      "edition.json"
+      "edition.json",
+      "!node_modules/lottie-web/**",
+      "!node_modules/react/**",
+      "!node_modules/react-dom/**",
+      "!node_modules/scheduler/**"
     ],
     "directories": {
       "output": "release/unified"
     },
+    "afterPack": "scripts/windows-after-pack.cjs",
     "mac": {
       "target": [
         {
@@ -72,17 +79,58 @@
           ]
         }
       ],
-      "category": "public.app-category.entertainment"
+      "category": "public.app-category.entertainment",
+      "extraResources": [
+        {
+          "from": "native/bin",
+          "to": "notification-tools",
+          "filter": [
+            "NotificationCapture-arm64",
+            "NotificationCapture-x64"
+          ]
+        }
+      ]
     },
-    "extraResources": [
-      {
-        "from": "native/bin",
-        "to": "notification-tools",
-        "filter": [
-          "NotificationCapture-arm64",
-          "NotificationCapture-x64"
-        ]
-      }
-    ]
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "WorkJudge-Setup-${version}-${arch}.${ext}",
+      "icon": "public/characters/npc.png",
+      "signExecutable": false,
+      "requestedExecutionLevel": "asInvoker",
+      "extraResources": [
+        {
+          "from": "native/windows",
+          "to": "notification-tools/windows",
+          "filter": [
+            "NotificationCapture.ps1"
+          ]
+        }
+      ],
+      "electronLanguages": [
+        "zh-CN",
+        "en-US"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "职场小判官",
+      "installerLanguages": [
+        "zh_CN"
+      ],
+      "language": "2052",
+      "deleteAppDataOnUninstall": false,
+      "script": "build/windows-installer.nsi"
+    }
   }
 }

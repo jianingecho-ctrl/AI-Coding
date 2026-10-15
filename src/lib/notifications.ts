@@ -10,9 +10,9 @@ export type NotificationSettings=z.infer<typeof notificationSettingsSchema>;
 export const defaultNotificationSettings=notificationSettingsSchema.parse({});
 export const notificationMetaSchema=z.object({capturedAt:z.string(),observedSender:z.string().max(100),group:z.string().max(100).optional(),recognizedText:z.string().max(5000),confirmedByUser:z.boolean(),context:z.enum(['feishu-window','system-notification','other-window','unknown']),fixture:z.boolean().default(false)});
 export type NotificationMeta=z.infer<typeof notificationMetaSchema>;
-export const captureFrameSchema=z.object({status:z.enum(['recognized','no-text','permission-required','failed','timeout','unsupported']),message:z.string().max(2000).default(''),lines:z.array(z.object({text:z.string().max(1000),confidence:z.number().min(0).max(1),box:z.object({x:z.number().finite(),y:z.number().finite(),width:z.number().positive(),height:z.number().positive()}).optional()})).max(100).default([]),region:z.object({x:z.number().finite(),y:z.number().finite(),width:z.number().positive(),height:z.number().positive()}).optional(),captureMode:z.enum(['selected-area','notification-window']).default('selected-area'),context:z.enum(['feishu-window','system-notification','other-window','unknown']).default('unknown'),fixture:z.boolean().default(false)});
+export const captureFrameSchema=z.object({status:z.enum(['recognized','no-text','permission-required','failed','timeout','unsupported']),message:z.string().max(2000).default(''),lines:z.array(z.object({text:z.string().max(1000),confidence:z.number().min(0).max(1),confidenceKnown:z.boolean().optional(),box:z.object({x:z.number().finite(),y:z.number().finite(),width:z.number().positive(),height:z.number().positive()}).optional()})).max(100).default([]),region:z.object({x:z.number().finite(),y:z.number().finite(),width:z.number().positive(),height:z.number().positive()}).optional(),captureMode:z.enum(['selected-area','notification-window']).default('selected-area'),context:z.enum(['feishu-window','system-notification','other-window','unknown']).default('unknown'),fixture:z.boolean().default(false)});
 export type CaptureFrame=z.infer<typeof captureFrameSchema>;
-export interface ParsedNotification{sender:string;body:string;group?:string;contactIds:string[];confidence:number;sourceMatched:boolean;requiresConfirmation?:boolean;extraction?:'positioned';warnings:string[]}
+export interface ParsedNotification{sender:string;body:string;group?:string;contactIds:string[];confidence:number;confidenceKnown?:boolean;sourceMatched:boolean;requiresConfirmation?:boolean;extraction?:'positioned';warnings:string[]}
 export interface NotificationDraft extends ParsedNotification{id:string;capturedAt:string;context:CaptureFrame['context'];fixture:boolean}
 export interface NotificationStatus{state:'paused'|'watching'|'capturing'|'blocked';available:boolean;fixture:boolean;error:string;drafts:NotificationDraft[];lastCapture?:string;lastResult?:{frame:CaptureFrame;parsed:number;baseline:boolean;duplicates:number;newDrafts:number;delivered:number};delivered:number;duplicates:number}
 const application=/^(飞书|Feishu|Lark)$/i;
@@ -43,13 +43,13 @@ export function parseNotifications(frame:CaptureFrame,contacts:Contact[]):Parsed
   const matchedSource=sourceMatched||Boolean(position?.brandMatched&&frame.context==='system-notification');
   if(!matchedSource)warnings.push(position&&frame.context==='system-notification'?'系统通知窗口已定位，但未识别到飞书标题；请核对来源。':'通知来源无法自动确认，请核对是否来自飞书。');
   if(contactIds.length!==1)warnings.push(contactIds.length?'姓名对应多位联系人，请手动选择。':'姓名尚未绑定联系人，请选择联系人或添加通知姓名别名。');
-  if(confidence<.9)warnings.push('识别置信度较低，请核对姓名与正文。');
+  if(frame.lines.some(line=>line.confidenceKnown===false))warnings.push('系统 OCR 未提供置信度，请核对姓名、正文和通知来源。');else if(confidence<.9)warnings.push('识别置信度较低，请核对姓名与正文。');
   if(position?.suggested)warnings.push('末尾 l/I/1 可能是识别误差，联系人仅为相似姓名建议，请人工确认；不会据此自动触发。');
   if(requiresConfirmation&&!position&&!ownInterface)warnings.push('多张通知根据文字分隔，请核对各条姓名与正文后确认。');
   if(ownInterface)warnings.push('识别内容混入小判官界面，选区可能被遮挡。请移开控制台和桌宠后重新识别，不会自动送达。');
   if(position&&requiresConfirmation&&!ownInterface&&!position.suggested)warnings.push('姓名或正文触及截图边界，请核对是否被截断。');
   if(/[.…]{2,}|…/.test(body))warnings.push('可见正文可能被截断，完整内容请到飞书查看。');
-  result.push({sender,body,group,contactIds,confidence,sourceMatched:matchedSource,...(requiresConfirmation?{requiresConfirmation:true}:{}),...(position?{extraction:'positioned' as const}:{}),warnings});
+  result.push({sender,body,group,contactIds,confidence,...(frame.lines.some(line=>line.confidenceKnown===false)?{confidenceKnown:false}:{}),sourceMatched:matchedSource,...(requiresConfirmation?{requiresConfirmation:true}:{}),...(position?{extraction:'positioned' as const}:{}),warnings});
  }
  if(frame.lines.some(line=>line.box)){
   const positioned=positionedNotifications(frame,name=>{const exact=matchingContacts(name,contacts);return {contactIds:exact.length?exact:suggestedContacts(name,contacts),suggested:!exact.length};});

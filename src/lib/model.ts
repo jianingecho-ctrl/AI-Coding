@@ -62,7 +62,7 @@ export const stateSchema=z.object({
  notifications:notificationSettingsSchema.default(defaultNotificationSettings),
 });
 export type State=z.infer<typeof stateSchema>;
-export interface AppInfo{edition:Theme;name:string;label:string;version:string;appId:string;dataDirectory:string;migratedLegacy:boolean;canSwitch?:boolean}
+export interface AppInfo{edition:Theme;name:string;label:string;version:string;appId:string;dataDirectory:string;migratedLegacy:boolean;canSwitch?:boolean;platform?:string}
 export const defaultState:State={weddingMusic:null,contacts:categories.map((category,i)=>({id:['boss','honest','bored','laidback','silly','bigSilly','npc'][i],name:['王经理','老实小陈','厌世小周','躺平搭子','小迷糊','甩锅达人','路过同事'][i],category})),history:[],pet:{name:'小判官',color:'薄荷绿',skin:'desert',character:'npc',assetId:null,alwaysOnTop:true,scale:.6,soundEnabled:true,soundVolume:.45,theme:'ocean'},ai:{enabled:false,provider:'ollama',model:'qwen2.5:3b',baseUrl:'https://api.openai.com/v1'},assets:[],interactions:[],notifications:structuredClone(defaultNotificationSettings)};
 export interface Bridge{
  switchProfile(theme:Theme):Promise<{info:AppInfo;state:State}>;onProfile(callback:(value:{info:AppInfo;state:State})=>void):()=>void;

@@ -30,7 +30,8 @@ const appRoot=unified?profiles.root:editionDataRoot(dataBase,edition);
 let dataRoot=unified?profiles.directory(edition):appRoot;
 mkdirSync(path.join(appRoot,'session'),{recursive:true,mode:0o700});
 app.setName(identity.name);app.setPath('userData',appRoot);app.setPath('sessionData',path.join(appRoot,'session'));
-const appInfo:AppInfo={edition,name:identity.name,label:unified?(edition==='palace'?'甄嬛传档案':'比奇堡档案'):identity.label,version:app.getVersion(),appId:identity.appId,dataDirectory:dataRoot,migratedLegacy:false,canSwitch:unified};
+if(process.platform==='win32')app.setAppUserModelId(identity.appId);
+const appInfo:AppInfo={edition,name:identity.name,label:unified?(edition==='palace'?'甄嬛传档案':'比奇堡档案'):identity.label,version:app.getVersion(),appId:identity.appId,dataDirectory:dataRoot,migratedLegacy:false,canSwitch:unified,platform:process.platform};
 let switching=false,profileEpoch=0;
 const expected=process.argv.find(a=>a.startsWith('--expect-edition=')||a.startsWith('--theme='))?.split('=')[1];
 const editionMismatch=Boolean(expected&&expected!==deployment);
@@ -71,7 +72,7 @@ function deliver(message:Message){
  if(message.effect?.theme!==edition||!pet||pet.isDestroyed())return;
  resizePet(true);
  const effect=messageEffects(message);
- if(effect.entry==='slide'){
+ if(effect.entry==='slide'&&process.platform!=='win32'){
   const area=screen.getDisplayMatching(pet.getBounds()).workArea;
   const bounds=pet.getBounds();
   pet.setPosition(Math.max(area.x,area.x+area.width-bounds.width),Math.max(area.y,Math.min(bounds.y,area.y+area.height-bounds.height)));
@@ -84,7 +85,8 @@ async function activateProfile(theme:Theme){
  if(unified){const loaded=await profiles.load(theme);target=loaded.store;migrated=loaded.migrated;}
  else{if(theme==='ocean')migrated=await migrateLegacyOcean(directory,[path.join(dataBase,'workplace-little-judge'),path.join(dataBase,'职场小判官')]);target=new Store(path.join(directory,'judge-state.json'),editionDefaults(theme),state=>normalizeEditionState(state,theme));await target.load();}
  const notificationBinary=app.isPackaged?path.join(process.resourcesPath,'notification-tools','NotificationCapture-'+process.arch):path.join(__dirname,'../../native/bin','NotificationCapture-'+process.arch);
- const adapter=await createNotificationAdapter(notificationBinary,!app.isPackaged?process.env.JUDGE_NOTIFICATION_FIXTURE:undefined);
+ const windowsScript=app.isPackaged?path.join(process.resourcesPath,'notification-tools/windows/NotificationCapture.ps1'):path.join(__dirname,'../../native/windows/NotificationCapture.ps1');
+ const adapter=await createNotificationAdapter(notificationBinary,!app.isPackaged?process.env.JUDGE_NOTIFICATION_FIXTURE:undefined,windowsScript);
  // 先完成目标档案加载，再切换引用；旧异步结果只可能留在原档案。
  notifications?.stop();displayQueue?.clear();edition=theme;dataRoot=directory;store=target;profileEpoch++;const epoch=profileEpoch,isCurrent=()=>store===target&&epoch===profileEpoch;
  assetRoot=path.join(directory,'assets');const ownerCredentials=new Credentials(path.join(directory,'ai-key.enc'));credentials=ownerCredentials;
@@ -102,7 +104,8 @@ if(primary)app.whenReady().then(async()=>{
  await activateProfile(edition);
  const area=screen.getPrimaryDisplay().workArea;
  const size=petWindowSize(store.get().pet.scale,false);
- pet=new BrowserWindow({...size,x:Math.max(area.x,area.x+area.width-size.width-20),y:Math.max(area.y,area.y+area.height-size.height-20),transparent:true,frame:false,alwaysOnTop:true,resizable:false,hasShadow:false,skipTaskbar:true,webPreferences:options()});
+ // Keep the Windows pet away from the default lower-right notification capture area.
+ pet=new BrowserWindow({...size,x:process.platform==='win32'?area.x+20:Math.max(area.x,area.x+area.width-size.width-20),y:Math.max(area.y,area.y+area.height-size.height-20),transparent:true,frame:false,alwaysOnTop:true,resizable:false,hasShadow:false,skipTaskbar:true,webPreferences:options()});
  pet.setAlwaysOnTop(store.get().pet.alwaysOnTop,'floating');pet.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});load(pet,'pet');
  pet.on('closed',()=>{pet=null;app.quit();});
  Menu.setApplicationMenu(Menu.buildFromTemplate([{label:identity.name,submenu:[{label:'打开控制台',click:openPanel},{label:'显示桌宠',click:()=>pet?.show()},{label:'隐藏桌宠',click:()=>{openPanel();pet?.hide()}},{label:'退出'+identity.name,click:()=>app.quit()}]},{label:'编辑',submenu:[{label:'撤销',role:'undo'},{label:'重做',role:'redo'},{type:'separator'},{label:'剪切',role:'cut'},{label:'复制',role:'copy'},{label:'粘贴',role:'paste'},{label:'全选',role:'selectAll'}]}]));
