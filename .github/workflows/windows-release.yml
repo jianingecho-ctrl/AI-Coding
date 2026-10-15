@@ -1,0 +1,113 @@
+name: Windows 安装与发布
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [desktop-pet-mvp]
+    paths: [.github/workflows/windows-release.yml]
+    tags: [windows-v*]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: 安装锁定依赖
+        run: npm ci
+      - name: 验证 Windows 适配协议与安全卸载清单
+        run: npx vitest run tests/windows-notifications.test.ts tests/windows-installer.test.ts
+      - name: 检查 Windows 系统 OCR 接口（不截图）
+        run: |
+          $result = & "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File native/windows/NotificationCapture.ps1 -Check
+          if ($LASTEXITCODE -ne 0) { throw 'Windows OCR 检查进程失败' }
+          $frame = ($result -join "`n") | ConvertFrom-Json
+          if ($frame.status -notin @('no-text','unsupported')) { throw ($frame | ConvertTo-Json -Compress) }
+          Write-Host $frame.message
+      - name: 构建 Windows x64 安装器
+        run: npm run pack:win
+      - name: 验证真实 Windows 安装与应用启动
+        run: |
+          $version = node -p "require('./package.json').version"
+          $installer = (Resolve-Path "release/unified/WorkJudge-Setup-$version-x64.exe").Path
+          $installRoot = Join-Path $env:RUNNER_TEMP '小判官 安装验收'
+          $process = Start-Process -FilePath $installer -ArgumentList "/S /D=$installRoot" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "安装失败：$($process.ExitCode)" }
+          $env:JUDGE_WINDOWS_APP = Join-Path $installRoot '职场小判官.exe'
+          if (-not (Test-Path $env:JUDGE_WINDOWS_APP)) { throw '安装后主程序不存在' }
+          $env:JUDGE_WINDOWS_DATA = Join-Path $env:RUNNER_TEMP 'judge-windows-test-data'
+          node tests/windows-installed-desktop.cjs
+          if ($LASTEXITCODE -ne 0) { throw '已安装应用功能验收失败' }
+          'INSTALL_ROOT='+$installRoot >> $env:GITHUB_ENV
+          'TEST_DATA_ROOT='+$env:JUDGE_WINDOWS_DATA >> $env:GITHUB_ENV
+      - name: 验证真实卸载与用户文件保留
+        run: |
+          $personal = Join-Path $env:INSTALL_ROOT '用户自己放的文件.txt'
+          'keep-user-file' | Set-Content -LiteralPath $personal
+          $uninstaller = Join-Path $env:INSTALL_ROOT '卸载职场小判官.exe'
+          $process = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "卸载失败：$($process.ExitCode)" }
+          $exe = Join-Path $env:INSTALL_ROOT '职场小判官.exe'
+          for ($i=0; $i -lt 30 -and (Test-Path $exe); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path $exe) { throw '卸载后程序文件仍存在' }
+          if ((Get-Content -LiteralPath $personal).Trim() -ne 'keep-user-file') { throw '卸载错误删除了用户文件' }
+          $dataFile = Join-Path $env:TEST_DATA_ROOT 'workplace-little-judge-unified/profiles/ocean/judge-state.json'
+          if (-not (Test-Path $dataFile)) { throw '卸载错误删除了本地档案' }
+      - name: 生成校验及版本说明
+        run: |
+          $version = node -p "require('./package.json').version"
+          $name = "WorkJudge-Setup-$version-x64.exe"
+          $hash = (Get-FileHash "release/unified/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $name" | Set-Content -Encoding utf8NoBOM release/unified/SHA256SUMS.txt
+          @"
+          Windows 10/11 x64 体验版。下载 $name，双击中文向导安装；以后双击桌面快捷方式。无需开发工具，内置比奇堡和甄嬛传双主题及六种趣味互动。
+
+          GitHub Windows runner 已验证：构建、Windows 适配测试、真实静默安装、已安装 EXE 的人物加载/模拟消息/主题隔离/互动计数/重启，以及卸载保留个人档案和安装目录中的额外用户文件。云端 Linux 另已通过128项单元测试和双主题、通知、异步切换隔离、包内 ASAR 回归。
+
+          Windows OCR 使用系统 PowerShell、可见选区截图和本机 OCR；中文组件及真实飞书通知仍需用户电脑验收。系统 OCR 检查未截图，桌面通知流程使用虚构 OCR 数据。未在你的电脑验证系统通知、多屏/DPI、声音听感或 SmartScreen/企业策略。
+
+          安装包未签名，可能显示未知发布者。请核对来源与校验值，不要关闭系统防护或绕过企业策略。联系人、历史、素材和音乐本地分档保存，通知始终本机规则解析；回复不会自动发送到飞书。
+
+          Mac用户继续使用原来的0.11.0源码包；这个EXE不能在Mac打开。附件提供Windows安装攻略和Mac源码包分享教程。
+
+          SHA256 ($name): $hash
+          "@ | Set-Content -Encoding utf8NoBOM release/unified/发布说明.md
+          'RELEASE_TAG=windows-v'+$version >> $env:GITHUB_ENV
+          'INSTALLER_NAME='+$name >> $env:GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Windows-x64-installation-verified
+          path: |
+            release/unified/WorkJudge-Setup-*-x64.exe
+            release/unified/SHA256SUMS.txt
+            release/unified/发布说明.md
+          retention-days: 14
+      - name: 上传完整安装包并发布体验版
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $release = gh release view $env:RELEASE_TAG --json isDraft 2>$null | ConvertFrom-Json
+          if ($LASTEXITCODE -eq 0) {
+            if (-not $release.isDraft) { throw '该版本已经发布，请升版本，不能替换已发布安装包。' }
+          } else {
+            gh release create $env:RELEASE_TAG --draft --prerelease --verify-tag --title "职场小判官 $env:RELEASE_TAG · Windows体验版" --notes-file release/unified/发布说明.md
+            if ($LASTEXITCODE -ne 0) { throw '创建版本草稿失败' }
+          }
+          gh release upload $env:RELEASE_TAG "release/unified/$env:INSTALLER_NAME" release/unified/SHA256SUMS.txt docs/Windows安装使用教程.md docs/把Mac源码包分享给同事.md --clobber
+          if ($LASTEXITCODE -ne 0) { throw '附件上传失败，保留草稿，不发布' }
+          gh release edit $env:RELEASE_TAG --draft=false --prerelease --latest=false --notes-file release/unified/发布说明.md
+          if ($LASTEXITCODE -ne 0) { throw '发布失败' }
