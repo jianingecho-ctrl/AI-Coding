@@ -19,6 +19,8 @@ async function createUninstallManifest(appOutDir){
 }
 module.exports=async context=>{
  if(context.electronPlatformName!=='win32')return;
- await writeFile(path.join(context.outDir,'windows-uninstall-files.nsh'),await createUninstallManifest(context.appOutDir));
+ const manifest=path.join(context.outDir,'windows-uninstall-files.nsh');
+ await writeFile(manifest,'\uFEFF'+await createUninstallManifest(context.appOutDir));
+ console.log('Windows 卸载清单已生成：'+manifest);
 };
 module.exports.createUninstallManifest=createUninstallManifest;

@@ -10,7 +10,7 @@ const {mkdir}=require('node:fs/promises');
   await expect.poll(()=>app.windows().filter(page=>page.url().includes('view=')).length).toBe(2);
   let pet=app.windows().find(page=>page.url().includes('view=pet')),panel=app.windows().find(page=>page.url().includes('view=panel'));
   for(const page of [pet,panel])page.on('pageerror',error=>errors.push(error.message));
-  expect(await panel.evaluate(()=>window.judge.getAppInfo())).toMatchObject({version:'0.12.0',platform:'win32',canSwitch:true});
+  expect(await panel.evaluate(()=>window.judge.getAppInfo())).toMatchObject({version:require('../package.json').version,platform:'win32',canSwitch:true});
   await expect(pet.locator('.reference-character[data-ready="true"]').first()).toBeVisible();
   await panel.getByLabel('模拟飞书消息').fill('Windows安装验收：今天18点前核对文件');await panel.getByRole('button',{name:'发送测试消息 ↗',exact:true}).click();await expect(pet.locator('.message-body')).toContainText('Windows安装验收');
   await pet.getByRole('button',{name:'飞踢ta',exact:true}).click();await expect(pet.locator('[data-interaction="kick"]')).toContainText('走你');

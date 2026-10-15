@@ -10,7 +10,13 @@ InstallDirRegKey HKCU "Software\WorkJudge" "InstallDir"
 !include "MUI2.nsh"
 !include "x64.nsh"
 !include "WinVer.nsh"
-!include "${BUILD_RESOURCES_DIR}/../release/unified/windows-uninstall-files.nsh"
+!ifdef NSIS_WIN32_MAKENSIS
+  !define JUDGE_STAGE_GLOB "${PROJECT_DIR}\release\unified\win-unpacked\*"
+  !include "${PROJECT_DIR}\release\unified\windows-uninstall-files.nsh"
+!else
+  !define JUDGE_STAGE_GLOB "${PROJECT_DIR}/release/unified/win-unpacked/*"
+  !include "${PROJECT_DIR}/release/unified/windows-uninstall-files.nsh"
+!endif
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_RUN "$INSTDIR\职场小判官.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "打开职场小判官"
@@ -51,7 +57,7 @@ FunctionEnd
 Section "安装"
   SetOutPath "$INSTDIR"
   ; Stage files were produced by electron-builder for win32-x64.
-  File /r "${BUILD_RESOURCES_DIR}/../release/unified/win-unpacked/*"
+  File /r "${JUDGE_STAGE_GLOB}"
   WriteUninstaller "$INSTDIR\卸载职场小判官.exe"
   CreateDirectory "$SMPROGRAMS\职场小判官"
   CreateShortcut "$SMPROGRAMS\职场小判官\职场小判官.lnk" "$INSTDIR\职场小判官.exe"

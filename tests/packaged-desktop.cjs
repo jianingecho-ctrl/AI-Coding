@@ -11,7 +11,7 @@ const path=require('node:path');
   await expect.poll(()=>app.windows().filter(page=>page.url().includes('view=')).length).toBe(2);
   const pet=app.windows().find(page=>page.url().includes('view=pet')),panel=app.windows().find(page=>page.url().includes('view=panel'));
   for(const page of [pet,panel])page.on('pageerror',error=>errors.push(error.message));
-  expect((await panel.evaluate(()=>window.judge.getAppInfo())).version).toBe('0.12.0');
+  expect((await panel.evaluate(()=>window.judge.getAppInfo())).version).toBe(require('../package.json').version);
   await expect(pet.locator('.reference-character[data-ready="true"]').first()).toBeVisible();
   await panel.getByLabel('模拟飞书消息').fill('安装包内容验收：请今天18点前回复');await panel.getByRole('button',{name:'发送测试消息 ↗',exact:true}).click();
   await expect(pet.locator('.message-body')).toContainText('安装包内容验收');

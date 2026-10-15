@@ -1,4 +1,4 @@
-# Windows 安装使用教程 · 0.12.0 体验版
+# Windows 安装使用教程 · 0.12.1 体验版
 
 适用 Windows 10 22H2 / Windows 11 的 Intel、AMD 64 位电脑。暂未制作 Windows ARM64 原生包，不支持 Windows 7/8 或 32 位 Windows。Mac 请继续使用 Mac 版，不能打开这个 EXE。
 
@@ -6,7 +6,7 @@
 
 ## 下载和安装
 
-1. [下载安装包 WorkJudge-Setup-0.12.0-x64.exe](https://github.com/jianingecho-ctrl/AI-Coding/releases/download/windows-v0.12.0/WorkJudge-Setup-0.12.0-x64.exe)。[版本页面](https://github.com/jianingecho-ctrl/AI-Coding/releases/tag/windows-v0.12.0)同时提供本教程、校验文件和源码。
+1. [下载安装包 WorkJudge-Setup-0.12.1-x64.exe](https://github.com/jianingecho-ctrl/AI-Coding/releases/download/windows-v0.12.1/WorkJudge-Setup-0.12.1-x64.exe)。[版本页面](https://github.com/jianingecho-ctrl/AI-Coding/releases/tag/windows-v0.12.1)同时提供本教程、校验文件和源码。
 2. 双击 EXE，按中文向导安装。默认只安装到当前 Windows 用户，无需管理员权限。首次安装不需要 Node.js、npm、Python、Swift 或 Visual Studio。
 3. 完成后勾选打开应用，或者双击桌面「职场小判官」快捷方式。以后直接双击快捷方式即可。
 4. 若应用已在运行，再次打开快捷方式会显示原来的控制台及桌宠。
@@ -16,7 +16,7 @@
 可选：下载同版本的 `SHA256SUMS.txt`，在 PowerShell 中运行下列命令，将结果与文件中的 64 位哈希值对照。这里只读取文件，不会安装软件。
 
 ```powershell
-Get-FileHash "$HOME\Downloads\WorkJudge-Setup-0.12.0-x64.exe" -Algorithm SHA256
+Get-FileHash "$HOME\Downloads\WorkJudge-Setup-0.12.1-x64.exe" -Algorithm SHA256
 ```
 
 ## 先用模拟消息验证
@@ -81,10 +81,10 @@ npm start
 npm run pack:win
 ```
 
-输出在 `release\unified\WorkJudge-Setup-0.12.0-x64.exe`。Linux 构建机同样能生成未签名安装器；使用 NSIS 内嵌卸载器，不依赖 Wine。卸载清单由构建后的实际文件生成，只删除交付文件，不递归删除用户选中的整个安装文件夹。
+输出在 `release\unified\WorkJudge-Setup-0.12.1-x64.exe`。Linux 构建机同样能生成未签名安装器；使用 NSIS 内嵌卸载器，不依赖 Wine。卸载清单由构建后的实际文件生成，只删除交付文件，不递归删除用户选中的整个安装文件夹。
 
 ## 验收记录
 
-云端 Linux 已验证：TypeScript/Vite/Electron 构建、128项单元测试、双主题桌面回归、切换中的异步隔离、通知适配协议、Windows PowerShell 脚本语法和内嵌 C# 编译、真实 NSIS 安装包生成及完整性校验。检查了主程序 x64 PE 格式、Windows 脚本完整性和个人数据排除；用云端 Electron 启动安装包中的 ASAR 内容，确认两套人物加载、模拟消息和主题切换。通知输入的桌面测试使用虚构 OCR 结果。
+云端 Linux 已验证：TypeScript/Vite/Electron 构建、129项单元测试、双主题桌面回归、切换中的异步隔离、通知适配协议、Windows PowerShell 脚本语法和内嵌 C# 编译、真实 NSIS 安装包生成及完整性校验。检查了主程序 x64 PE 格式、Windows 脚本完整性和个人数据排除；用云端 Electron 启动安装包中的 ASAR 内容，确认两套人物加载、模拟消息和主题切换。通知输入的桌面测试使用虚构 OCR 结果。
 
 仍需真实 Windows 验证：安装/升级/卸载向导、系统透明窗口和拖动、扬声器听感、系统中文 OCR、实际飞书通知、不同 DPI/显示器、SmartScreen/企业策略兼容。没有在云端执行 Windows 安装器或 Windows 截图 API；本版按体验版交付。
