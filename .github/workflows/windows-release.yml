@@ -37,9 +37,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Windows OCR 检查进程失败' }
           $frame = ($result -join "`n") | ConvertFrom-Json
           if ($frame.status -notin @('no-text','unsupported')) { throw ($frame | ConvertTo-Json -Compress) }
-          Write-Host $frame.message
+          Write-Host "::notice title=Windows OCR 接口检查::$($frame.status)：$($frame.message)"
       - name: 构建 Windows x64 安装器
-        run: npm run pack:win
+        run: |
+          & npm run pack:win 2>&1 | Tee-Object -Variable judgeBuildOutput
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $tail = (($judgeBuildOutput | Select-Object -Last 90) -join "`n").Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+            Write-Host "::error title=Windows打包详细错误::$tail"
+            exit $code
+          }
       - name: 验证真实 Windows 安装与应用启动
         run: |
           $version = node -p "require('./package.json').version"
@@ -69,6 +76,9 @@ jobs:
           if (-not (Test-Path $dataFile)) { throw '卸载错误删除了本地档案' }
       - name: 生成校验及版本说明
         run: |
+          $guide = Get-Content -Raw -Encoding utf8 docs/Windows安装使用教程.md
+          $guide = $guide.Replace('没有在云端执行 Windows 安装器或 Windows 截图 API；本版按体验版交付。','GitHub Windows runner另已执行静默安装、已安装EXE的模拟消息/双主题/互动/重启检查及静默卸载，确认本地档案和额外用户文件保留。交互式向导、升级、系统截图和实际OCR仍需用户电脑验收；本版按体验版交付。')
+          $guide | Set-Content -Encoding utf8NoBOM release/unified/Windows安装使用教程.md
           $version = node -p "require('./package.json').version"
           $name = "WorkJudge-Setup-$version-x64.exe"
           $hash = (Get-FileHash "release/unified/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -107,7 +117,7 @@ jobs:
             gh release create $env:RELEASE_TAG --draft --prerelease --verify-tag --title "职场小判官 $env:RELEASE_TAG · Windows体验版" --notes-file release/unified/发布说明.md
             if ($LASTEXITCODE -ne 0) { throw '创建版本草稿失败' }
           }
-          gh release upload $env:RELEASE_TAG "release/unified/$env:INSTALLER_NAME" release/unified/SHA256SUMS.txt docs/Windows安装使用教程.md docs/把Mac源码包分享给同事.md --clobber
+          gh release upload $env:RELEASE_TAG "release/unified/$env:INSTALLER_NAME" release/unified/SHA256SUMS.txt release/unified/Windows安装使用教程.md docs/把Mac源码包分享给同事.md --clobber
           if ($LASTEXITCODE -ne 0) { throw '附件上传失败，保留草稿，不发布' }
           gh release edit $env:RELEASE_TAG --draft=false --prerelease --latest=false --notes-file release/unified/发布说明.md
           if ($LASTEXITCODE -ne 0) { throw '发布失败' }
